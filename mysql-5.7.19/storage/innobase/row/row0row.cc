@@ -59,7 +59,7 @@ the entry to be inserted into or purged from an index on the table.
 are unavailable and ext != NULL, or row is missing some needed columns. */
 dtuple_t*
 row_build_index_entry_low(
-	/*======================*/
+/*======================*/
 	const dtuple_t*		row,	/*!< in: row which should be
 					inserted or purged */
 	const row_ext_t*	ext,	/*!< in: externally stored column
@@ -70,7 +70,7 @@ row_build_index_entry_low(
 					is allocated */
 	ulint			flag)	/*!< in: ROW_BUILD_NORMAL,
 					ROW_BUILD_FOR_PURGE
-										or ROW_BUILD_FOR_UNDO */
+                                        or ROW_BUILD_FOR_UNDO */
 {
 	dtuple_t*	entry;
 	ulint		entry_len;
@@ -82,8 +82,7 @@ row_build_index_entry_low(
 	if (flag == ROW_BUILD_FOR_INSERT && dict_index_is_clust(index)) {
 		num_v = dict_table_get_n_v_cols(index->table);
 		entry = dtuple_create_with_vcol(heap, entry_len, num_v);
-	}
-	else {
+	} else {
 		entry = dtuple_create(heap, entry_len);
 	}
 
@@ -92,8 +91,7 @@ row_build_index_entry_low(
 		/* There may only be externally stored columns
 		in a clustered index B-tree of a user table. */
 		ut_a(!ext);
-	}
-	else {
+	} else {
 		dtuple_set_n_fields_cmp(
 			entry, dict_index_get_n_unique_in_tree(index));
 	}
@@ -109,13 +107,12 @@ row_build_index_entry_low(
 		if (i >= entry_len) {
 			/* This is to insert new rows to cluster index */
 			ut_ad(dict_index_is_clust(index)
-				&& flag == ROW_BUILD_FOR_INSERT);
+			      && flag == ROW_BUILD_FOR_INSERT);
 			dfield = dtuple_get_nth_v_field(entry, i - entry_len);
 			col = &dict_table_get_nth_v_col(
 				index->table, i - entry_len)->m_col;
 
-		}
-		else {
+		} else {
 			ind_field = dict_index_get_nth_field(index, i);
 			col = ind_field->col;
 			col_no = dict_col_get_no(col);
@@ -133,16 +130,15 @@ row_build_index_entry_low(
 			dfield2 = dtuple_get_nth_v_field(row, v_col->v_pos);
 
 			ut_ad(dfield_is_null(dfield2) || dfield2->data);
-		}
-		else {
+		} else {
 			dfield2 = dtuple_get_nth_field(row, col_no);
 			ut_ad(dfield_get_type(dfield2)->mtype == DATA_MISSING
-				|| (!(dfield_get_type(dfield2)->prtype
-					& DATA_VIRTUAL)));
+			      || (!(dfield_get_type(dfield2)->prtype
+				    & DATA_VIRTUAL)));
 		}
 
 		if (UNIV_UNLIKELY(dfield_get_type(dfield2)->mtype
-			== DATA_MISSING)) {
+				  == DATA_MISSING)) {
 			/* The field has not been initialized in the row.
 			This should be from trx_undo_rec_get_partial_row(). */
 			return(NULL);
@@ -150,7 +146,7 @@ row_build_index_entry_low(
 
 #ifdef UNIV_DEBUG
 		if (dfield_get_type(dfield2)->prtype & DATA_VIRTUAL
-			&& dict_index_is_clust(index)) {
+		    && dict_index_is_clust(index)) {
 			ut_ad(flag == ROW_BUILD_FOR_INSERT);
 		}
 #endif /* UNIV_DEBUG */
@@ -188,28 +184,28 @@ row_build_index_entry_low(
 
 						switch (spatial_status) {
 						case SPATIAL_ONLY:
-							ptr = static_cast<byte*>(
-								dfield_get_data(
-									dfield2));
-							ut_ad(dfield_get_len(dfield2)
-								== DATA_MBR_LEN);
-							break;
+						ptr = static_cast<byte*>(
+							dfield_get_data(
+								dfield2));
+						ut_ad(dfield_get_len(dfield2)
+						      == DATA_MBR_LEN);
+						break;
 
 						case SPATIAL_MIXED:
-							ptr = static_cast<byte*>(
-								dfield_get_data(
-									dfield2))
-								+ dfield_get_len(
-									dfield2);
-							break;
+						ptr = static_cast<byte*>(
+							dfield_get_data(
+								dfield2))
+							+ dfield_get_len(
+								dfield2);
+						break;
 
 						case SPATIAL_NONE:
-							/* Undo record is logged before
-							spatial index is created.*/
-							return(NULL);
+						/* Undo record is logged before
+						spatial index is created.*/
+						return(NULL);
 
 						case SPATIAL_UNKNOWN:
-							ut_ad(0);
+						ut_ad(0);
 						}
 
 						memcpy(mbr, ptr, DATA_MBR_LEN);
@@ -217,20 +213,19 @@ row_build_index_entry_low(
 					}
 
 					if (flag == ROW_BUILD_FOR_UNDO
-						&& dict_table_get_format(index->table)
+					    && dict_table_get_format(index->table)
 						>= UNIV_FORMAT_B) {
 						/* For build entry for undo, and
 						the table is Barrcuda, we need
 						to skip the prefix data. */
 						flen = BTR_EXTERN_FIELD_REF_SIZE;
 						ut_ad(dfield_get_len(dfield2) >=
-							BTR_EXTERN_FIELD_REF_SIZE);
+						      BTR_EXTERN_FIELD_REF_SIZE);
 						dptr = static_cast<byte*>(
 							dfield_get_data(dfield2))
 							+ dfield_get_len(dfield2)
 							- BTR_EXTERN_FIELD_REF_SIZE;
-					}
-					else {
+					} else {
 						flen = dfield_get_len(dfield2);
 						dptr = static_cast<byte*>(
 							dfield_get_data(dfield2));
@@ -249,8 +244,7 @@ row_build_index_entry_low(
 						page_size,
 						flen,
 						temp_heap);
-				}
-				else {
+				} else {
 					dptr = static_cast<uchar*>(
 						dfield_get_data(dfield2));
 					dlen = dfield_get_len(dfield2);
@@ -262,12 +256,11 @@ row_build_index_entry_low(
 						tmp_mbr[i * 2] = DBL_MAX;
 						tmp_mbr[i * 2 + 1] = -DBL_MAX;
 					}
-				}
-				else {
+				} else {
 					rtree_mbr_from_wkb(dptr + GEO_DATA_HEADER_SIZE,
-						static_cast<uint>(dlen
-							- GEO_DATA_HEADER_SIZE),
-						SPDIMS, tmp_mbr);
+							   static_cast<uint>(dlen
+							   - GEO_DATA_HEADER_SIZE),
+							   SPDIMS, tmp_mbr);
 				}
 				dfield_write_mbr(dfield, tmp_mbr);
 				if (temp_heap) {
@@ -286,8 +279,8 @@ row_build_index_entry_low(
 		}
 
 		if ((!ind_field || ind_field->prefix_len == 0)
-			&& (!dfield_is_ext(dfield)
-				|| dict_index_is_clust(index))) {
+		    && (!dfield_is_ext(dfield)
+			|| dict_index_is_clust(index))) {
 			/* The dfield_copy() above suffices for
 			columns that are stored in-page, or for
 			clustered index record columns that are not
@@ -308,7 +301,7 @@ row_build_index_entry_low(
 		if (ext) {
 			/* See if the column is stored externally. */
 			const byte*	buf = row_ext_lookup(ext, col_no,
-				&len);
+							     &len);
 			if (UNIV_LIKELY_NULL(buf)) {
 				if (UNIV_UNLIKELY(buf == field_ref_zero)) {
 					return(NULL);
@@ -328,8 +321,7 @@ row_build_index_entry_low(
 				the secondary index record. */
 				continue;
 			}
-		}
-		else if (dfield_is_ext(dfield)) {
+		} else if (dfield_is_ext(dfield)) {
 			/* This table is either in Antelope format
 			(ROW_FORMAT=REDUNDANT or ROW_FORMAT=COMPACT)
 			or a purge record where the ordered part of
@@ -396,11 +388,11 @@ row_build_low(
 	const byte*		copy;
 	dtuple_t*		row;
 	ulint			n_ext_cols;
-	ulint*			ext_cols = NULL; /* remove warning */
+	ulint*			ext_cols	= NULL; /* remove warning */
 	ulint			len;
 	byte*			buf;
 	ulint			j;
-	mem_heap_t*		tmp_heap = NULL;
+	mem_heap_t*		tmp_heap	= NULL;
 	ulint			offsets_[REC_OFFS_NORMAL_SIZE];
 	rec_offs_init(offsets_);
 
@@ -413,9 +405,8 @@ row_build_low(
 
 	if (!offsets) {
 		offsets = rec_get_offsets(rec, index, offsets_,
-			ULINT_UNDEFINED, &tmp_heap);
-	}
-	else {
+					  ULINT_UNDEFINED, &tmp_heap);
+	} else {
 		ut_ad(rec_offs_validate(rec, index, offsets));
 	}
 
@@ -428,8 +419,8 @@ row_build_low(
 	times, and the cursor restore can happen multiple times for single
 	insert or update statement.  */
 	ut_a(!rec_offs_any_null_extern(rec, offsets)
-		|| trx_rw_is_active(row_get_rec_trx_id(rec, index, offsets),
-			NULL, false));
+	     || trx_rw_is_active(row_get_rec_trx_id(rec, index, offsets),
+						    NULL, false));
 #endif /* UNIV_DEBUG || UNIV_BLOB_LIGHT_DEBUG */
 
 	if (type != ROW_COPY_POINTERS) {
@@ -438,8 +429,7 @@ row_build_low(
 			mem_heap_alloc(heap, rec_offs_size(offsets)));
 
 		copy = rec_copy(buf, rec, offsets);
-	}
-	else {
+	} else {
 		copy = rec;
 	}
 
@@ -467,8 +457,7 @@ row_build_low(
 				dict_table_get_nth_col(col_table, i),
 				dfield_get_type(dtuple_get_nth_field(row, i)));
 		}
-	}
-	else if (add_v != NULL) {
+	} else if (add_v != NULL) {
 		row = dtuple_create_with_vcol(
 			heap, dict_table_get_n_cols(col_table),
 			dict_table_get_n_v_cols(col_table) + add_v->n_v_col);
@@ -480,8 +469,7 @@ row_build_low(
 				dfield_get_type(dtuple_get_nth_v_field(
 					row, i + col_table->n_v_def)));
 		}
-	}
-	else {
+	} else {
 		row = dtuple_create_with_vcol(
 			heap, dict_table_get_n_cols(col_table),
 			dict_table_get_n_v_cols(col_table));
@@ -489,7 +477,7 @@ row_build_low(
 	}
 
 	dtuple_set_info_bits(row, rec_get_info_bits(
-		copy, rec_offs_comp(offsets)));
+				     copy, rec_offs_comp(offsets)));
 
 	j = 0;
 
@@ -556,12 +544,10 @@ row_build_low(
 		may use a cache that was set up by
 		row_log_table_delete(). */
 
-	}
-	else if (j) {
+	} else if (j) {
 		*ext = row_ext_create(j, ext_cols, index->table->flags, row,
-			heap);
-	}
-	else {
+				      heap);
+	} else {
 		*ext = NULL;
 	}
 
@@ -579,7 +565,7 @@ record in a clustered index.
 @return own: row built; see the NOTE below! */
 dtuple_t*
 row_build(
-	/*======*/
+/*======*/
 	ulint			type,	/*!< in: ROW_COPY_POINTERS or
 					ROW_COPY_DATA; the latter
 					copies also the data fields to
@@ -601,15 +587,15 @@ row_build(
 					or NULL, in which case this function
 					will invoke rec_get_offsets() */
 	const dict_table_t*	col_table,
-	/*!< in: table, to check which
-	externally stored columns
-	occur in the ordering columns
-	of an index, or NULL if
-	index->table should be
-	consulted instead */
+					/*!< in: table, to check which
+					externally stored columns
+					occur in the ordering columns
+					of an index, or NULL if
+					index->table should be
+					consulted instead */
 	const dtuple_t*		add_cols,
-	/*!< in: default values of
-	added columns, or NULL */
+					/*!< in: default values of
+					added columns, or NULL */
 	const ulint*		col_map,/*!< in: mapping of old column
 					numbers to new ones, or NULL */
 	row_ext_t**		ext,	/*!< out, own: cache of
@@ -619,7 +605,7 @@ row_build(
 					 the memory needed is allocated */
 {
 	return(row_build_low(type, index, rec, offsets, col_table,
-		add_cols, NULL, col_map, ext, heap));
+			     add_cols, NULL, col_map, ext, heap));
 }
 
 /** An inverse function to row_build_index_entry. Builds a row from a
@@ -659,7 +645,7 @@ row_build_w_add_vcol(
 	mem_heap_t*		heap)
 {
 	return(row_build_low(type, index, rec, offsets, col_table,
-		add_cols, add_v, col_map, ext, heap));
+			     add_cols, add_v, col_map, ext, heap));
 }
 
 /*******************************************************************//**
@@ -668,7 +654,7 @@ Converts an index record to a typed data tuple.
 in the entry will point directly to rec */
 dtuple_t*
 row_rec_to_index_entry_low(
-	/*=======================*/
+/*=======================*/
 	const rec_t*		rec,	/*!< in: record in the index */
 	const dict_index_t*	index,	/*!< in: index */
 	const ulint*		offsets,/*!< in: rec_get_offsets(rec, index) */
@@ -699,12 +685,12 @@ row_rec_to_index_entry_low(
 	entry = dtuple_create(heap, rec_len);
 
 	dtuple_set_n_fields_cmp(entry,
-		dict_index_get_n_unique_in_tree(index));
+				dict_index_get_n_unique_in_tree(index));
 	ut_ad(rec_len == dict_index_get_n_fields(index)
-		/* a record for older SYS_INDEXES table
-		(missing merge_threshold column) is acceptable. */
-		|| (index->table->id == DICT_INDEXES_ID
-			&& rec_len == dict_index_get_n_fields(index) - 1));
+	      /* a record for older SYS_INDEXES table
+	      (missing merge_threshold column) is acceptable. */
+	      || (index->table->id == DICT_INDEXES_ID
+		  && rec_len == dict_index_get_n_fields(index) - 1));
 
 	dict_index_copy_types(entry, index, rec_len);
 
@@ -732,7 +718,7 @@ stored (often big) fields are NOT copied to heap.
 @return own: index entry built */
 dtuple_t*
 row_rec_to_index_entry(
-	/*===================*/
+/*===================*/
 	const rec_t*		rec,	/*!< in: record in the index */
 	const dict_index_t*	index,	/*!< in: index */
 	const ulint*		offsets,/*!< in: rec_get_offsets(rec) */
@@ -762,7 +748,7 @@ row_rec_to_index_entry(
 	rec_offs_make_valid(rec, index, const_cast<ulint*>(offsets));
 
 	dtuple_set_info_bits(entry,
-		rec_get_info_bits(rec, rec_offs_comp(offsets)));
+			     rec_get_info_bits(rec, rec_offs_comp(offsets)));
 
 	return(entry);
 }
@@ -773,7 +759,7 @@ search the clustered index record.
 @return own: row reference built; see the NOTE below! */
 dtuple_t*
 row_build_row_ref(
-	/*==============*/
+/*==============*/
 	ulint		type,	/*!< in: ROW_COPY_DATA, or ROW_COPY_POINTERS:
 				the former copies also the data fields to
 				heap, whereas the latter only places pointers
@@ -800,9 +786,9 @@ row_build_row_ref(
 	byte*		buf;
 	ulint		clust_col_prefix_len;
 	ulint		i;
-	mem_heap_t*	tmp_heap = NULL;
+	mem_heap_t*	tmp_heap	= NULL;
 	ulint		offsets_[REC_OFFS_NORMAL_SIZE];
-	ulint*		offsets = offsets_;
+	ulint*		offsets		= offsets_;
 	rec_offs_init(offsets_);
 
 	ut_ad(index != NULL);
@@ -811,7 +797,7 @@ row_build_row_ref(
 	ut_ad(!dict_index_is_clust(index));
 
 	offsets = rec_get_offsets(rec, index, offsets,
-		ULINT_UNDEFINED, &tmp_heap);
+				  ULINT_UNDEFINED, &tmp_heap);
 	/* Secondary indexes must not contain externally stored columns. */
 	ut_ad(!rec_offs_any_extern(offsets));
 
@@ -862,11 +848,11 @@ row_build_row_ref(
 					= dfield_get_type(dfield);
 
 				dfield_set_len(dfield,
-					dtype_get_at_most_n_mbchars(
-						dtype->prtype,
-						dtype->mbminmaxlen,
-						clust_col_prefix_len,
-						len, (char*)field));
+					       dtype_get_at_most_n_mbchars(
+						       dtype->prtype,
+						       dtype->mbminmaxlen,
+						       clust_col_prefix_len,
+						       len, (char*) field));
 			}
 		}
 	}
@@ -884,7 +870,7 @@ Builds from a secondary index record a row reference with which we can
 search the clustered index record. */
 void
 row_build_row_ref_in_tuple(
-	/*=======================*/
+/*=======================*/
 	dtuple_t*		ref,	/*!< in/out: row reference built;
 					see the NOTE below! */
 	const rec_t*		rec,	/*!< in: record in the index;
@@ -908,7 +894,7 @@ row_build_row_ref_in_tuple(
 	ulint			pos;
 	ulint			clust_col_prefix_len;
 	ulint			i;
-	mem_heap_t*		heap = NULL;
+	mem_heap_t*		heap		= NULL;
 	ulint			offsets_[REC_OFFS_NORMAL_SIZE];
 	rec_offs_init(offsets_);
 
@@ -923,9 +909,8 @@ row_build_row_ref_in_tuple(
 
 	if (!offsets) {
 		offsets = rec_get_offsets(rec, index, offsets_,
-			ULINT_UNDEFINED, &heap);
-	}
-	else {
+					  ULINT_UNDEFINED, &heap);
+	} else {
 		ut_ad(rec_offs_validate(rec, index, offsets));
 	}
 
@@ -963,11 +948,11 @@ row_build_row_ref_in_tuple(
 					= dfield_get_type(dfield);
 
 				dfield_set_len(dfield,
-					dtype_get_at_most_n_mbchars(
-						dtype->prtype,
-						dtype->mbminmaxlen,
-						clust_col_prefix_len,
-						len, (char*)field));
+					       dtype_get_at_most_n_mbchars(
+						       dtype->prtype,
+						       dtype->mbminmaxlen,
+						       clust_col_prefix_len,
+						       len, (char*) field));
 			}
 		}
 	}
@@ -983,7 +968,7 @@ Searches the clustered index record for a row, if we have the row reference.
 @return TRUE if found */
 ibool
 row_search_on_row_ref(
-	/*==================*/
+/*==================*/
 	btr_pcur_t*		pcur,	/*!< out: persistent cursor, which must
 					be closed by the caller */
 	ulint			mode,	/*!< in: BTR_MODIFY_LEAF, ... */
@@ -1026,7 +1011,7 @@ on the secondary index record are preserved.
 @return record or NULL, if no record found */
 rec_t*
 row_get_clust_rec(
-	/*==============*/
+/*==============*/
 	ulint		mode,	/*!< in: BTR_MODIFY_LEAF, ... */
 	const rec_t*	rec,	/*!< in: record in a secondary index */
 	dict_index_t*	index,	/*!< in: secondary index */
@@ -1065,14 +1050,14 @@ row_get_clust_rec(
 Searches an index record.
 @return whether the record was found or buffered */
 enum row_search_result
-	row_search_index_entry(
-		/*===================*/
-		dict_index_t*	index,	/*!< in: index */
-		const dtuple_t*	entry,	/*!< in: index entry */
-		ulint		mode,	/*!< in: BTR_MODIFY_LEAF, ... */
-		btr_pcur_t*	pcur,	/*!< in/out: persistent cursor, which must
-					be closed by the caller */
-		mtr_t*		mtr)	/*!< in: mtr */
+row_search_index_entry(
+/*===================*/
+	dict_index_t*	index,	/*!< in: index */
+	const dtuple_t*	entry,	/*!< in: index entry */
+	ulint		mode,	/*!< in: BTR_MODIFY_LEAF, ... */
+	btr_pcur_t*	pcur,	/*!< in/out: persistent cursor, which must
+				be closed by the caller */
+	mtr_t*		mtr)	/*!< in: mtr */
 {
 	ulint	n_fields;
 	ulint	low_match;
@@ -1083,9 +1068,8 @@ enum row_search_result
 	if (dict_index_is_spatial(index)) {
 		ut_ad(mode & BTR_MODIFY_LEAF || mode & BTR_MODIFY_TREE);
 		rtr_pcur_open(index, entry, PAGE_CUR_RTREE_LOCATE,
-			mode, pcur, mtr);
-	}
-	else {
+			      mode, pcur, mtr);
+	} else {
 		btr_pcur_open(index, entry, PAGE_CUR_LE, mode, pcur, mtr);
 	}
 
@@ -1114,8 +1098,7 @@ enum row_search_result
 	if (page_rec_is_infimum(rec)) {
 
 		return(ROW_NOT_FOUND);
-	}
-	else if (low_match != n_fields) {
+	} else if (low_match != n_fields) {
 
 		return(ROW_NOT_FOUND);
 	}
@@ -1137,7 +1120,7 @@ terminating '\0').
 static
 ulint
 row_raw_format_int(
-	/*===============*/
+/*===============*/
 	const char*	data,		/*!< in: raw data */
 	ulint		data_len,	/*!< in: raw data length
 					in bytes */
@@ -1156,13 +1139,12 @@ row_raw_format_int(
 		ibool		unsigned_type = prtype & DATA_UNSIGNED;
 
 		value = mach_read_int_type(
-			(const byte*)data, data_len, unsigned_type);
+			(const byte*) data, data_len, unsigned_type);
 
 		ret = ut_snprintf(
 			buf, buf_size,
 			unsigned_type ? UINT64PF : "%" PRId64, value) + 1;
-	}
-	else {
+	} else {
 
 		*format_in_hex = TRUE;
 		ret = 0;
@@ -1186,7 +1168,7 @@ terminating '\0').
 static
 ulint
 row_raw_format_str(
-	/*===============*/
+/*===============*/
 	const char*	data,		/*!< in: raw data */
 	ulint		data_len,	/*!< in: raw data length
 					in bytes */
@@ -1222,7 +1204,7 @@ row_raw_format_str(
 	/* else */
 
 	return(innobase_raw_format(data, data_len, charset_coll,
-		buf, buf_size));
+					  buf, buf_size));
 }
 
 /*******************************************************************//**
@@ -1235,7 +1217,7 @@ terminating NUL).
 @return number of bytes that were written */
 ulint
 row_raw_format(
-	/*===========*/
+/*===========*/
 	const char*		data,		/*!< in: raw data */
 	ulint			data_len,	/*!< in: raw data length
 						in bytes */
@@ -1256,7 +1238,7 @@ row_raw_format(
 
 	if (data_len == UNIV_SQL_NULL) {
 
-		ret = ut_snprintf((char*)buf, buf_size, "NULL") + 1;
+		ret = ut_snprintf((char*) buf, buf_size, "NULL") + 1;
 
 		return(ut_min(ret, buf_size));
 	}
@@ -1270,7 +1252,7 @@ row_raw_format(
 	case DATA_INT:
 
 		ret = row_raw_format_int(data, data_len, prtype,
-			buf, buf_size, &format_in_hex);
+					 buf, buf_size, &format_in_hex);
 		if (format_in_hex) {
 
 			goto format_in_hex;
@@ -1282,14 +1264,14 @@ row_raw_format(
 	case DATA_VARMYSQL:
 
 		ret = row_raw_format_str(data, data_len, prtype,
-			buf, buf_size, &format_in_hex);
+					 buf, buf_size, &format_in_hex);
 		if (format_in_hex) {
 
 			goto format_in_hex;
 		}
 
 		break;
-		/* XXX support more data types */
+	/* XXX support more data types */
 	default:
 	format_in_hex:
 
@@ -1299,9 +1281,8 @@ row_raw_format(
 			buf += 2;
 			buf_size -= 2;
 			ret = 2 + ut_raw_to_hex(data, data_len,
-				buf, buf_size);
-		}
-		else {
+						buf, buf_size);
+		} else {
 
 			buf[0] = '\0';
 			ret = 1;
@@ -1368,138 +1349,138 @@ test_row_raw_format_int()
 	/* min values for signed 1-8 byte integers */
 
 	CALL_AND_TEST("\x00", 1, 0,
-		buf, sizeof(buf), 5, "-128", 0);
+		      buf, sizeof(buf), 5, "-128", 0);
 
 	CALL_AND_TEST("\x00\x00", 2, 0,
-		buf, sizeof(buf), 7, "-32768", 0);
+		      buf, sizeof(buf), 7, "-32768", 0);
 
 	CALL_AND_TEST("\x00\x00\x00", 3, 0,
-		buf, sizeof(buf), 9, "-8388608", 0);
+		      buf, sizeof(buf), 9, "-8388608", 0);
 
 	CALL_AND_TEST("\x00\x00\x00\x00", 4, 0,
-		buf, sizeof(buf), 12, "-2147483648", 0);
+		      buf, sizeof(buf), 12, "-2147483648", 0);
 
 	CALL_AND_TEST("\x00\x00\x00\x00\x00", 5, 0,
-		buf, sizeof(buf), 14, "-549755813888", 0);
+		      buf, sizeof(buf), 14, "-549755813888", 0);
 
 	CALL_AND_TEST("\x00\x00\x00\x00\x00\x00", 6, 0,
-		buf, sizeof(buf), 17, "-140737488355328", 0);
+		      buf, sizeof(buf), 17, "-140737488355328", 0);
 
 	CALL_AND_TEST("\x00\x00\x00\x00\x00\x00\x00", 7, 0,
-		buf, sizeof(buf), 19, "-36028797018963968", 0);
+		      buf, sizeof(buf), 19, "-36028797018963968", 0);
 
 	CALL_AND_TEST("\x00\x00\x00\x00\x00\x00\x00\x00", 8, 0,
-		buf, sizeof(buf), 21, "-9223372036854775808", 0);
+		      buf, sizeof(buf), 21, "-9223372036854775808", 0);
 
 	/* min values for unsigned 1-8 byte integers */
 
 	CALL_AND_TEST("\x00", 1, DATA_UNSIGNED,
-		buf, sizeof(buf), 2, "0", 0);
+		      buf, sizeof(buf), 2, "0", 0);
 
 	CALL_AND_TEST("\x00\x00", 2, DATA_UNSIGNED,
-		buf, sizeof(buf), 2, "0", 0);
+		      buf, sizeof(buf), 2, "0", 0);
 
 	CALL_AND_TEST("\x00\x00\x00", 3, DATA_UNSIGNED,
-		buf, sizeof(buf), 2, "0", 0);
+		      buf, sizeof(buf), 2, "0", 0);
 
 	CALL_AND_TEST("\x00\x00\x00\x00", 4, DATA_UNSIGNED,
-		buf, sizeof(buf), 2, "0", 0);
+		      buf, sizeof(buf), 2, "0", 0);
 
 	CALL_AND_TEST("\x00\x00\x00\x00\x00", 5, DATA_UNSIGNED,
-		buf, sizeof(buf), 2, "0", 0);
+		      buf, sizeof(buf), 2, "0", 0);
 
 	CALL_AND_TEST("\x00\x00\x00\x00\x00\x00", 6, DATA_UNSIGNED,
-		buf, sizeof(buf), 2, "0", 0);
+		      buf, sizeof(buf), 2, "0", 0);
 
 	CALL_AND_TEST("\x00\x00\x00\x00\x00\x00\x00", 7, DATA_UNSIGNED,
-		buf, sizeof(buf), 2, "0", 0);
+		      buf, sizeof(buf), 2, "0", 0);
 
 	CALL_AND_TEST("\x00\x00\x00\x00\x00\x00\x00\x00", 8, DATA_UNSIGNED,
-		buf, sizeof(buf), 2, "0", 0);
+		      buf, sizeof(buf), 2, "0", 0);
 
 	/* max values for signed 1-8 byte integers */
 
 	CALL_AND_TEST("\xFF", 1, 0,
-		buf, sizeof(buf), 4, "127", 0);
+		      buf, sizeof(buf), 4, "127", 0);
 
 	CALL_AND_TEST("\xFF\xFF", 2, 0,
-		buf, sizeof(buf), 6, "32767", 0);
+		      buf, sizeof(buf), 6, "32767", 0);
 
 	CALL_AND_TEST("\xFF\xFF\xFF", 3, 0,
-		buf, sizeof(buf), 8, "8388607", 0);
+		      buf, sizeof(buf), 8, "8388607", 0);
 
 	CALL_AND_TEST("\xFF\xFF\xFF\xFF", 4, 0,
-		buf, sizeof(buf), 11, "2147483647", 0);
+		      buf, sizeof(buf), 11, "2147483647", 0);
 
 	CALL_AND_TEST("\xFF\xFF\xFF\xFF\xFF", 5, 0,
-		buf, sizeof(buf), 13, "549755813887", 0);
+		      buf, sizeof(buf), 13, "549755813887", 0);
 
 	CALL_AND_TEST("\xFF\xFF\xFF\xFF\xFF\xFF", 6, 0,
-		buf, sizeof(buf), 16, "140737488355327", 0);
+		      buf, sizeof(buf), 16, "140737488355327", 0);
 
 	CALL_AND_TEST("\xFF\xFF\xFF\xFF\xFF\xFF\xFF", 7, 0,
-		buf, sizeof(buf), 18, "36028797018963967", 0);
+		      buf, sizeof(buf), 18, "36028797018963967", 0);
 
 	CALL_AND_TEST("\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF", 8, 0,
-		buf, sizeof(buf), 20, "9223372036854775807", 0);
+		      buf, sizeof(buf), 20, "9223372036854775807", 0);
 
 	/* max values for unsigned 1-8 byte integers */
 
 	CALL_AND_TEST("\xFF", 1, DATA_UNSIGNED,
-		buf, sizeof(buf), 4, "255", 0);
+		      buf, sizeof(buf), 4, "255", 0);
 
 	CALL_AND_TEST("\xFF\xFF", 2, DATA_UNSIGNED,
-		buf, sizeof(buf), 6, "65535", 0);
+		      buf, sizeof(buf), 6, "65535", 0);
 
 	CALL_AND_TEST("\xFF\xFF\xFF", 3, DATA_UNSIGNED,
-		buf, sizeof(buf), 9, "16777215", 0);
+		      buf, sizeof(buf), 9, "16777215", 0);
 
 	CALL_AND_TEST("\xFF\xFF\xFF\xFF", 4, DATA_UNSIGNED,
-		buf, sizeof(buf), 11, "4294967295", 0);
+		      buf, sizeof(buf), 11, "4294967295", 0);
 
 	CALL_AND_TEST("\xFF\xFF\xFF\xFF\xFF", 5, DATA_UNSIGNED,
-		buf, sizeof(buf), 14, "1099511627775", 0);
+		      buf, sizeof(buf), 14, "1099511627775", 0);
 
 	CALL_AND_TEST("\xFF\xFF\xFF\xFF\xFF\xFF", 6, DATA_UNSIGNED,
-		buf, sizeof(buf), 16, "281474976710655", 0);
+		      buf, sizeof(buf), 16, "281474976710655", 0);
 
 	CALL_AND_TEST("\xFF\xFF\xFF\xFF\xFF\xFF\xFF", 7, DATA_UNSIGNED,
-		buf, sizeof(buf), 18, "72057594037927935", 0);
+		      buf, sizeof(buf), 18, "72057594037927935", 0);
 
 	CALL_AND_TEST("\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF", 8, DATA_UNSIGNED,
-		buf, sizeof(buf), 21, "18446744073709551615", 0);
+		      buf, sizeof(buf), 21, "18446744073709551615", 0);
 
 	/* some random values */
 
 	CALL_AND_TEST("\x52", 1, 0,
-		buf, sizeof(buf), 4, "-46", 0);
+		      buf, sizeof(buf), 4, "-46", 0);
 
 	CALL_AND_TEST("\x0E", 1, DATA_UNSIGNED,
-		buf, sizeof(buf), 3, "14", 0);
+		      buf, sizeof(buf), 3, "14", 0);
 
 	CALL_AND_TEST("\x62\xCE", 2, 0,
-		buf, sizeof(buf), 6, "-7474", 0);
+		      buf, sizeof(buf), 6, "-7474", 0);
 
 	CALL_AND_TEST("\x29\xD6", 2, DATA_UNSIGNED,
-		buf, sizeof(buf), 6, "10710", 0);
+		      buf, sizeof(buf), 6, "10710", 0);
 
 	CALL_AND_TEST("\x7F\xFF\x90", 3, 0,
-		buf, sizeof(buf), 5, "-112", 0);
+		      buf, sizeof(buf), 5, "-112", 0);
 
 	CALL_AND_TEST("\x00\xA1\x16", 3, DATA_UNSIGNED,
-		buf, sizeof(buf), 6, "41238", 0);
+		      buf, sizeof(buf), 6, "41238", 0);
 
 	CALL_AND_TEST("\x7F\xFF\xFF\xF7", 4, 0,
-		buf, sizeof(buf), 3, "-9", 0);
+		      buf, sizeof(buf), 3, "-9", 0);
 
 	CALL_AND_TEST("\x00\x00\x00\x5C", 4, DATA_UNSIGNED,
-		buf, sizeof(buf), 3, "92", 0);
+		      buf, sizeof(buf), 3, "92", 0);
 
 	CALL_AND_TEST("\x7F\xFF\xFF\xFF\xFF\xFF\xDC\x63", 8, 0,
-		buf, sizeof(buf), 6, "-9117", 0);
+		      buf, sizeof(buf), 6, "-9117", 0);
 
 	CALL_AND_TEST("\x00\x00\x00\x00\x00\x01\x64\x62", 8, DATA_UNSIGNED,
-		buf, sizeof(buf), 6, "91234", 0);
+		      buf, sizeof(buf), 6, "91234", 0);
 #endif
 
 	/* speed test */
@@ -1508,18 +1489,18 @@ test_row_raw_format_int()
 
 	for (i = 0; i < 1000000; i++) {
 		row_raw_format_int("\x23", 1,
-			0, buf, sizeof(buf),
-			&format_in_hex);
+				   0, buf, sizeof(buf),
+				   &format_in_hex);
 		row_raw_format_int("\x23", 1,
-			DATA_UNSIGNED, buf, sizeof(buf),
-			&format_in_hex);
+				   DATA_UNSIGNED, buf, sizeof(buf),
+				   &format_in_hex);
 
 		row_raw_format_int("\x00\x00\x00\x00\x00\x01\x64\x62", 8,
-			0, buf, sizeof(buf),
-			&format_in_hex);
+				   0, buf, sizeof(buf),
+				   &format_in_hex);
 		row_raw_format_int("\x00\x00\x00\x00\x00\x01\x64\x62", 8,
-			DATA_UNSIGNED, buf, sizeof(buf),
-			&format_in_hex);
+				   DATA_UNSIGNED, buf, sizeof(buf),
+				   &format_in_hex);
 	}
 }
 
