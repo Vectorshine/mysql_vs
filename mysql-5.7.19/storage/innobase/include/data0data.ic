@@ -26,7 +26,6 @@ Created 5/30/1994 Heikki Tuuri
 #include "mem0mem.h"
 #include "ut0rnd.h"
 #include "btr0types.h"
-#include "hash.h"
 #define fun_num 6
 
 const int using_fun_num = 6;
@@ -34,7 +33,103 @@ const uint use_bloom_filter = 0;
 const byte masks[8] = {0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80};
 const uint using_hash_fun_num = 6;
 typedef unsigned (*hash_func_ptr)(const char *buffer, uint size);
-hash_func_ptr hash[fun_num] = {sdbmhash,jshash,bkdrhash,aphash,djbhash,rshash};
+
+UNIV_INLINE uint jshash(const char *s, unsigned size)
+{
+    int hash_num = 1315423911;
+    unsigned len = 0;
+    while (len < size)
+    {
+        hash_num ^= (hash_num << 5) + s[len] + (hash_num >> 2);
+        len++;
+    }
+    return (hash_num & 0x7fffffffl);
+}
+
+
+//sdbhash方法
+UNIV_INLINE uint sdbmhash(const char *s, unsigned size)
+{
+    int hash_num = 0;
+    unsigned len = 0;
+    while (len < size)
+    {
+        hash_num = (hash_num << 6) + (hash_num << 16) - hash_num + s[len];
+        len++;
+    }
+    return (hash_num & 0x7fffffffl);
+}
+
+// BKDR hash Function
+UNIV_INLINE uint bkdrhash(const char *s, unsigned size)
+{
+    unsigned seed = 131; // 31 131 1313 13131 131313 etc..
+    unsigned int hash_num = 0;
+    unsigned len = 0;
+    while (len < size)
+    {
+        hash_num = hash_num * seed + s[len];
+        len++;
+    }
+    return (hash_num & 0x7fffffffl);
+}
+
+// AP hash Function
+UNIV_INLINE uint aphash(const char *s, unsigned size)
+{
+    unsigned int hash_num = 0;
+    int i;
+    int len = 0;
+ 
+    while(len < size)
+    {
+        if ((i & 1) == 0)
+        {
+            hash_num ^= ((hash_num << 7) ^ (s[len]) ^ (hash_num >> 3));
+        }
+        else
+        {
+            hash_num ^= (~((hash_num << 11) ^ (s[len]) ^ (hash_num >> 5)));
+        }
+        len++;
+    }
+ 
+    return (hash_num & 0x7fffffffl);
+}
+
+// DJB hash Function
+UNIV_INLINE uint djbhash(const char *s, unsigned size)
+{
+    unsigned hash_num = 5381;
+    int len = 0;
+    while (len < size)
+    {
+        hash_num += (hash_num << 5) + s[len];
+        len++;
+    }
+    return (hash_num & 0x7fffffffl);
+}
+
+// RS hash Function
+UNIV_INLINE uint rshash(const char *s, unsigned size)
+{
+    unsigned int b = 378551;
+    unsigned int a = 63689;
+    unsigned int hash_num = 0;
+    int len = 0;
+ 
+    while (len < size)
+    {
+        hash_num = hash_num * a + s[len];
+        a *= b;
+        len++;
+    }
+ 
+    return (hash_num & 0x7fffffffl);
+}
+static const hash_func_ptr hash[fun_num] = {sdbmhash,jshash,bkdrhash,aphash,djbhash,rshash};
+/**/
+
 
 #ifdef UNIV_DEBUG
 /** Dummy variable to catch access to uninitialized fields.  In the
@@ -194,8 +289,10 @@ dfield_set_spatial_status(
 	field->spatial_status = spatial_status;
 }
 
+
 /****************************************************************//*
-Get bloom filter value*/
+Get bloom filter value自己加的*/
+UNIV_INLINE
 byte 
 bloom_value_get(byte temp,const void *data, unsigned size)
 {
@@ -222,13 +319,13 @@ dfield_set_data(
 #ifdef UNIV_VALGRIND_DEBUG
 	if (len != UNIV_SQL_NULL) UNIV_MEM_ASSERT_RW(data, len);
 #endif /* UNIV_VALGRIND_DEBUG */
-	if(use_bloom_filter)
+	if(!use_bloom_filter)//如果不使用布隆过滤器
 	{
 		field->data = (void*) data;
 		field->ext = 0;
 		field->len = static_cast<unsigned int>(len);
 	}
-	else
+	else//使用布隆过滤器
 	{
 		field->ext = 0;
 		field->len = static_cast<unsigned int>(len);
