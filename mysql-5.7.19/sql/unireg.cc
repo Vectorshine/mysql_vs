@@ -523,7 +523,7 @@ int rea_create_table(THD *thd, const char *path,
   char fileName[FN_REFLEN + 1];      //保存在工程目录下
   strxnmov(fileName, sizeof(fileName) - 1, path, ".bm", NullS);//存储位数组bitmap
  
-  fp = fopen(fileName, "w+");
+  fp = fopen(fileName, "w+b");
   static uint size = 655371;
   static unsigned char *bitmap = (unsigned char *)malloc(size);
   memset(bitmap, 0, size);
