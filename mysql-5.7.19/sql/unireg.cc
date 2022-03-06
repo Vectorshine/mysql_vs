@@ -519,6 +519,13 @@ int rea_create_table(THD *thd, const char *path,
   char frm_name[FN_REFLEN + 1];
   strxnmov(frm_name, sizeof(frm_name) - 1, path, reg_ext, NullS);
 
+  FILE *fp = NULL;
+  char fileName[FN_REFLEN + 1];      //保存在工程目录下
+  strxnmov(fileName, sizeof(fileName) - 1, path, ".bm", NullS);//存储位数组bitmap
+ 
+  fp = fopen(fileName, "w+");
+  fclose(fp);
+
   if (mysql_create_frm(thd, frm_name, db, table_name, create_info,
                        create_fields, keys, key_info, file))
 
