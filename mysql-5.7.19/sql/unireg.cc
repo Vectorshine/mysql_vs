@@ -524,6 +524,11 @@ int rea_create_table(THD *thd, const char *path,
   strxnmov(fileName, sizeof(fileName) - 1, path, ".bm", NullS);//´æ´¢Î»Êý×ébitmap
  
   fp = fopen(fileName, "w+");
+  static uint size = 655371;
+  static unsigned char *bitmap = (unsigned char *)malloc(size);
+  memset(bitmap, 0, size);
+
+  fwrite(bitmap, sizeof(bitmap), 1, fp);
   fclose(fp);
 
   if (mysql_create_frm(thd, frm_name, db, table_name, create_info,
