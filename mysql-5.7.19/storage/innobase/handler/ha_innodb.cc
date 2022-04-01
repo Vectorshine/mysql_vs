@@ -7555,15 +7555,18 @@ no_commit:
 
 	/*开始将记录的hash填入位数组文件中去*/
 	//先从将这个数原样填入开始：1.找到要填的数 2.hash变换 3.打开文件读数据并填入 4.写回然后关闭文件
-	FILE *fp = NULL;
-	char fileName[FN_REFLEN + 1];      //保存在工程目录下
+	static FILE *fp = NULL;
+	static char fileName[FN_REFLEN + 1];      //保存在工程目录下
 	strxnmov(fileName, sizeof(fileName) - 1, m_prebuilt->table->name.m_name, ".bm", NullS);//存储位数组bitmap
-	fp = fopen(fileName, "r+b");
+	fp = fopen(fileName, "r+");
 	static uint size = 655371;
 	static unsigned char *bitmap = (unsigned char *)malloc(size);
 	fread(bitmap, sizeof(bitmap), 1, fp);
-	bitmap[2] = 'v';
-	fwrite(bitmap, sizeof(bitmap), 1, fp);
+	//bitmap[4] = char(m_prebuilt->ins_node->row->fields->data);
+	//fwrite(bitmap, sizeof(bitmap), 1, fp);
+	fseek(fp, 0, SEEK_SET);
+	fwrite(record, sizeof(record), 1, fp);
+	//fwrite(m_prebuilt->ins_node->row->fields->data, sizeof(m_prebuilt->ins_node->row->fields->data), 1, fp);
 	fclose(fp);
 
 	DEBUG_SYNC(m_user_thd, "ib_after_row_insert");
