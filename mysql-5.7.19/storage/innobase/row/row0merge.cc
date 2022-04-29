@@ -23,9 +23,10 @@ New index creation routines using a merge sort
 Created 12/4/2005 Jan Lindstrom
 Completed by Sunny Bains and Marko Makela
 *******************************************************/
-
 #include <math.h>
 
+
+#include "my_include.h"
 #include "ha_prototypes.h"
 
 #include "row0merge.h"
@@ -1604,6 +1605,36 @@ row_geo_field_is_valid(
 	return(true);
 }
 
+unsigned int bf_hash(const char *s, unsigned size)
+{
+	int hash = 1315423911;
+	unsigned len = 0;
+	while (len < size)
+	{
+		hash ^= (hash << 5) + s[len] + (hash >> 2);
+		len++;
+	}
+	return (hash & 0x7fffffffl);
+}
+void bloom_insert(vector<char> bf_array, void* data, int hash_num)
+{
+	int size = bf_array.size();
+	const unsigned char masks[8] = { 0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80 };
+	unsigned h = bf_hash((const char *)data, size) % (size * 8);
+	vector<uint> value(hash_num);
+	value[0] = h;
+	//之后是通过对h的移位等得到剩余的值并存入value，现在先不写，看hash)_num=1的情况
+	for (int i = 1; i < hash_num; ++i)
+	{
+		//
+	}
+	for (int i = 0; i < hash_num; i++)
+	{
+		unsigned idx = value[i] / 8;
+		bf_array[idx] |= masks[value[i] % 8];
+	}
+}
+
 /** Reads clustered index of the table and create temporary files
 containing the index entries for the indexes to be built.
 @param[in]	trx		transaction
@@ -1662,6 +1693,7 @@ row_merge_read_clustered_index(
 	ut_stage_alter_t*	stage,
 	struct TABLE*		eval_table)
 {
+	bool USE_BF = true;
 	dict_index_t*		clust_index;	/* Clustered index */
 	mem_heap_t*		row_heap;	/* Heap memory to create
 						clustered index tuples */
@@ -1838,6 +1870,97 @@ row_merge_read_clustered_index(
 		prev_fields = NULL;
 	}
 
+	if (!USE_BF)
+	{
+		static FILE *fp = NULL;
+		page_t*		page;
+		rec_t*	temp_rec;
+		static char fileName[FN_REFLEN + 1] = { "G:/new_mysql_log/data/datamip/test.bm" };
+		fp_init(fileName);
+		page_cur_t* temp_cur = btr_pcur_get_page_cur(&pcur);
+		temp_rec= page_cur_get_rec(temp_cur);
+		page = page_align(temp_rec);
+		uint rec_num = page_get_n_recs(page);
+		uint old_page_no = page_get_page_no(page);
+		vector<char> bf_array(rec_num);
+		int cur_rec = 0;//当前是该页第几个记录 
+		char *min_data;
+		char *max_data;
+		rec_t*	min_rec;
+		rec_t*	max_rec;
+
+		for (;;) {
+			rec_t*	rec;
+			ulint*		offsets;
+			const dtuple_t*	row;
+			row_ext_t*	ext;
+			page_cur_t*	cur = btr_pcur_get_page_cur(&pcur);
+			mem_heap_empty(row_heap);
+			cur_rec++;
+			rec = page_cur_get_rec(cur);
+			page = page_align(temp_rec);
+			if (page_get_page_no(page) != old_page_no) {//到了新页 
+
+				//将bf数组放在申请好的页       
+build_bf:
+				int line_num = write_fp(fileName, bf_array);
+				//将收集的数据构建一个新的元组   row=build_bfindex();	
+				row = row_build_w_add_vcol(ROW_COPY_POINTERS, clust_index,
+					min_rec, offsets, new_table,
+					add_cols, add_v, col_map, &ext,
+					row_heap);
+				int col_no = 3;
+				int len = dfield_get_len(row->fields);
+				dfield_t*	dfield = dtuple_get_nth_field(row, col_no);
+				dfield_set_data(dfield, min_data, len);
+				//关于构建元组在row_merge_insert_index_tuples中 
+				//清空并构建新的数组
+				rec_num = page_get_n_recs(page);
+				bf_array.resize(rec_num);
+				bf_array.assign(rec_num, 0);
+				cur_rec = 0;
+				//插入到buf
+				goto write_buffers;
+			}
+			page_cur_move_to_next(cur);
+			stage->n_pk_recs_inc();
+			//先判断是不是最后的cursor,如果是也需要执行上一个函数
+			if (page_cur_is_after_last(cur)) {
+				goto end_cur;
+				goto build_bf;
+			}
+
+			offsets = rec_get_offsets(rec, clust_index, NULL, ULINT_UNDEFINED, &row_heap);
+			if (rec_get_deleted_flag(rec, dict_table_is_comp(old_table))) {
+				continue;
+			}
+			//解析记录放在bf数组中
+			ulint leng = dfield_get_len(row->fields);
+			const char*	datatemp;
+			char data[50] = { "" };
+			uint field_no = 3;
+			datatemp = (const char*)rec_get_nth_field(rec, offsets, field_no, &leng);
+			strncpy(data, datatemp, leng);
+			if (!cur_rec) //如果是第一个记录
+			{
+				min_data = data;
+				max_data = data;
+				min_rec = rec;
+				max_rec = rec;
+			}
+			else {//如果不是第一个记录，更新最大值和最小值 
+				min_data = min_data > data ? data : min_data;
+				if (min_data == data)
+					min_rec = rec;
+				max_data = min_data < data ? data : min_data;
+				if (max_data == data)
+					max_rec = rec;
+			}
+			bloom_insert(bf_array, data, 1);
+			continue;
+		}
+	}
+	
 	/* Scan the clustered index. */
 	for (;;) {
 		const rec_t*	rec;
@@ -1853,7 +1976,7 @@ row_merge_read_clustered_index(
 		stage->n_pk_recs_inc();
 
 		if (page_cur_is_after_last(cur)) {
-
+end_cur:
 			stage->inc();
 
 			if (UNIV_UNLIKELY(trx_is_interrupted(trx))) {
@@ -2058,7 +2181,6 @@ end_of_index:
 					   rec, offsets, new_table,
 					   add_cols, add_v, col_map, &ext,
 					   row_heap);
-		ut_ad(row);
 
 		for (ulint i = 0; i < n_nonnull; i++) {
 			const dfield_t*	field	= &row->fields[nonnull[i]];
