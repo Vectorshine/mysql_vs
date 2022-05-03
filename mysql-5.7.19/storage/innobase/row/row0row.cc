@@ -51,6 +51,108 @@ Created 4/20/1996 Heikki Tuuri
 #include "gis0geo.h"
 #include "row0mysql.h"
 
+dtuple_t*
+row_build_index_entry_low_bf(
+	/*======================*/
+	const dtuple_t*		row,	/*!< in: row which should be
+					inserted or purged */
+	const row_ext_t*	ext,	/*!< in: externally stored column
+					prefixes, or NULL */
+	dict_index_t*		index,	/*!< in: index on the table */
+	mem_heap_t*		heap,	/*!< in: memory heap from which
+					the memory for the index entry
+					is allocated */
+	ulint			flag,
+	const dtuple_t*		row2,
+	ulint           line_number,
+	ulint           page_no)	/*!< in: ROW_BUILD_NORMAL,
+					ROW_BUILD_FOR_PURGE
+										or ROW_BUILD_FOR_UNDO */
+{
+	dtuple_t*	entry;
+	ulint		entry_len = 4;
+
+
+	entry = dtuple_create(heap, entry_len);
+
+	dtuple_set_n_fields_cmp(
+		entry, 2);
+
+	{
+		const dict_field_t*	ind_field = NULL;
+		const dict_col_t*	col;
+		ulint			col_no = 0;
+		dfield_t*		dfield;
+		dfield_t*		dfield2;
+
+		ind_field = dict_index_get_nth_field(index, 0);
+		col = ind_field->col;
+		col_no = dict_col_get_no(col);
+		dfield = dtuple_get_nth_field(entry, 0);
+
+		dfield2 = dtuple_get_nth_field(row, col_no);
+		ut_ad(dfield_get_type(dfield2)->mtype == DATA_MISSING
+			|| (!(dfield_get_type(dfield2)->prtype
+				& DATA_VIRTUAL)));
+
+		dfield_copy(dfield, dfield2);
+	}
+
+	{
+		const dict_field_t*	ind_field = NULL;
+		const dict_col_t*	col;
+		ulint			col_no = 0;
+		dfield_t*		dfield;
+		dfield_t*		dfield2;
+
+		ind_field = dict_index_get_nth_field(index, 0);
+		col = ind_field->col;
+		col_no = dict_col_get_no(col);
+		dfield = dtuple_get_nth_field(entry, 1);
+
+		dfield2 = dtuple_get_nth_field(row2, col_no);
+		ut_ad(dfield_get_type(dfield2)->mtype == DATA_MISSING
+			|| (!(dfield_get_type(dfield2)->prtype
+				& DATA_VIRTUAL)));
+
+		dfield_copy(dfield, dfield2);
+	}
+
+	{
+		dfield_t*		dfield;
+
+		dfield = dtuple_get_nth_field(entry, 2);
+		dfield_set_data(dfield, &line_number, 4);
+
+		dfield->ext = 0;
+		dfield->spatial_status = 2;
+		dfield->len = 8;
+
+		dfield->type.prtype = 0x408;
+		dfield->type.mtype = 6;
+		dfield->type.len = 8;
+		dfield->type.mbminmaxlen = 0;
+	}
+
+	{
+		dfield_t*		dfield;
+
+		dfield = dtuple_get_nth_field(entry, 3);
+
+		dfield_set_data(dfield, &page_no, 4);
+
+		dfield->ext = 0;
+		dfield->spatial_status = 2;
+		dfield->len = 8;
+
+		dfield->type.prtype = 0x408;
+		dfield->type.mtype = 6;
+		dfield->type.len = 8;
+		dfield->type.mbminmaxlen = 0;
+	}
+	return(entry);
+}
+
 /*****************************************************************//**
 When an insert or purge to a table is performed, this function builds
 the entry to be inserted into or purged from an index on the table.

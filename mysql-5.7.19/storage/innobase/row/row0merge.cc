@@ -24,7 +24,7 @@ Created 12/4/2005 Jan Lindstrom
 Completed by Sunny Bains and Marko Makela
 *******************************************************/
 #include <math.h>
-
+#include "row0row.h"
 
 #include "my_include.h"
 #include "ha_prototypes.h"
@@ -558,7 +558,10 @@ row_merge_buf_add(
 			v_col = reinterpret_cast<const dict_v_col_t*>(col);
 		}
 
-		col_no = dict_col_get_no(col);
+		if (USE_BF)
+			col_no = i;
+		else
+			col_no = dict_col_get_no(col);
 
 		/* Process the Doc ID column */
 		if (*doc_id > 0
@@ -715,6 +718,7 @@ row_merge_buf_add(
 			}
 		} else if (!dict_col_is_virtual(col)) {
 			/* Only non-virtual column are stored externally */
+			
 			const byte*	buf = row_ext_lookup(ext, col_no,
 							     &len);
 			if (UNIV_LIKELY_NULL(buf)) {
@@ -1693,7 +1697,6 @@ row_merge_read_clustered_index(
 	ut_stage_alter_t*	stage,
 	struct TABLE*		eval_table)
 {
-	bool USE_BF = true;
 	dict_index_t*		clust_index;	/* Clustered index */
 	mem_heap_t*		row_heap;	/* Heap memory to create
 						clustered index tuples */
@@ -1870,7 +1873,9 @@ row_merge_read_clustered_index(
 		prev_fields = NULL;
 	}
 
-	if (!USE_BF)
+	dtuple_t*	myrow;
+	row_ext_t*	ext;
+	if (USE_BF)
 	{
 		static FILE *fp = NULL;
 		page_t*		page;
@@ -1880,39 +1885,49 @@ row_merge_read_clustered_index(
 		page_cur_t* temp_cur = btr_pcur_get_page_cur(&pcur);
 		temp_rec= page_cur_get_rec(temp_cur);
 		page = page_align(temp_rec);
+		ulint old_page_no = page_get_page_no(page);
 		uint rec_num = page_get_n_recs(page);
-		uint old_page_no = page_get_page_no(page);
 		vector<char> bf_array(rec_num);
 		int cur_rec = 0;//当前是该页第几个记录 
 		char *min_data;
 		char *max_data;
 		rec_t*	min_rec;
 		rec_t*	max_rec;
-
+		dtuple_t*	row1;
+		dtuple_t*	row2;
 		for (;;) {
 			rec_t*	rec;
 			ulint*		offsets;
-			const dtuple_t*	row;
-			row_ext_t*	ext;
+			dtuple_t*	rowrow;
+
 			page_cur_t*	cur = btr_pcur_get_page_cur(&pcur);
 			mem_heap_empty(row_heap);
 			cur_rec++;
 			rec = page_cur_get_rec(cur);
 			page = page_align(temp_rec);
-			if (page_get_page_no(page) != old_page_no) {//到了新页 
+			ulint now_page_no = page_get_page_no(page);
+
+			bool flag1 = page_rec_is_infimum(rec);
+			bool flag2 = page_rec_is_supremum(rec);
+			bool is_last = page_cur_is_after_last(cur);
+			page_cur_move_to_next(cur);
+			stage->n_pk_recs_inc();
+			if (flag1 || flag2 || rec_get_deleted_flag(rec, dict_table_is_comp(old_table))) {
+				continue;
+			}
+			if (now_page_no != old_page_no) {//即将到了新页 
 
 				//将bf数组放在申请好的页       
 build_bf:
 				int line_num = write_fp(fileName, bf_array);
 				//将收集的数据构建一个新的元组   row=build_bfindex();	
-				row = row_build_w_add_vcol(ROW_COPY_POINTERS, clust_index,
-					min_rec, offsets, new_table,
-					add_cols, add_v, col_map, &ext,
-					row_heap);
-				int col_no = 3;
-				int len = dfield_get_len(row->fields);
-				dfield_t*	dfield = dtuple_get_nth_field(row, col_no);
-				dfield_set_data(dfield, min_data, len);
+				mem_heap_t*		heap;
+				ulint* ofsets;
+				mrec_buf_t*		buf;
+				heap = mem_heap_create(sizeof *buf + 7 * sizeof *ofsets);
+				rowrow = row_build_index_entry_low_bf(row1, NULL,
+					index[0], heap, ROW_BUILD_FOR_INSERT, row2, line_num, old_page_no);
+				myrow = rowrow;
 				//关于构建元组在row_merge_insert_index_tuples中 
 				//清空并构建新的数组
 				rec_num = page_get_n_recs(page);
@@ -1922,39 +1937,46 @@ build_bf:
 				//插入到buf
 				goto write_buffers;
 			}
-			page_cur_move_to_next(cur);
-			stage->n_pk_recs_inc();
 			//先判断是不是最后的cursor,如果是也需要执行上一个函数
-			if (page_cur_is_after_last(cur)) {
-				goto end_cur;
+			/*if (page_cur_is_after_last(cur)) {
 				goto build_bf;
-			}
-
+				goto end_cur;
+			}*/
+			
 			offsets = rec_get_offsets(rec, clust_index, NULL, ULINT_UNDEFINED, &row_heap);
-			if (rec_get_deleted_flag(rec, dict_table_is_comp(old_table))) {
-				continue;
-			}
 			//解析记录放在bf数组中
-			ulint leng = dfield_get_len(row->fields);
+			dtuple_t*	temp_row = row_build_w_add_vcol(ROW_COPY_POINTERS, clust_index,
+				rec, offsets, new_table,
+				add_cols, add_v, col_map, &ext,
+				row_heap);
+			ulint leng;
 			const char*	datatemp;
 			char data[50] = { "" };
-			uint field_no = 3;
-			datatemp = (const char*)rec_get_nth_field(rec, offsets, field_no, &leng);
-			strncpy(data, datatemp, leng);
-			if (!cur_rec) //如果是第一个记录
+			for (ulint i = 1; i < 2; i++) {
+				leng = dfield_get_len(temp_row->fields+i);
+				datatemp = (const char*)((temp_row->fields+i)->data);
+				strncpy(data, datatemp, leng);
+			}
+			
+			if (cur_rec==2) //如果是第一个记录
 			{
 				min_data = data;
 				max_data = data;
 				min_rec = rec;
 				max_rec = rec;
+				row1 = temp_row;
+				row2 = temp_row;
 			}
-			else {//如果不是第一个记录，更新最大值和最小值 
+			else{//如果不是第一个记录，更新最大值和最小值 
 				min_data = min_data > data ? data : min_data;
-				if (min_data == data)
+				if (min_data == data) {
 					min_rec = rec;
+					row1 = temp_row;
+				}
 				max_data = min_data < data ? data : min_data;
-				if (max_data == data)
-					max_rec = rec;
+				if (max_data == data) {
+					row2 = temp_row;
+				}
 			}
 			bloom_insert(bf_array, data, 1);
 			continue;
@@ -2182,6 +2204,25 @@ end_of_index:
 					   add_cols, add_v, col_map, &ext,
 					   row_heap);
 
+		mem_heap_t*		heap;
+		ulint* ofsets;
+		mrec_buf_t*		buf;
+		heap = mem_heap_create(sizeof *buf + 7 * sizeof *ofsets);
+		dtuple_t*	entry = row_build_index_entry_low_bf(row, NULL, index[0], heap, ROW_BUILD_FOR_INSERT,row,1,123);
+
+		for (int i = 0; i < 4; i++) {
+
+			ulint leng = dfield_get_len(entry->fields+i);
+			const char*	datatemp;
+			char data[50] = { "" };
+			int field_no = 3;
+			datatemp = (const char*)((entry->fields+i)->data);
+			ulint *dat = (ulint*)((entry->fields + i)->data);
+			strncpy(data, datatemp, leng);
+			i = i;
+
+		}
+
 		for (ulint i = 0; i < n_nonnull; i++) {
 			const dfield_t*	field	= &row->fields[nonnull[i]];
 
@@ -2261,7 +2302,8 @@ write_buffers:
 		ulint	s_idx_cnt = 0;
 		bool	skip_sort = skip_pk_sort
 			&& dict_index_is_clust(merge_buf[0]->index);
-
+		if (USE_BF)
+			ext = NULL, row = myrow;
 		for (ulint i = 0; i < n_index; i++, skip_sort = false) {
 			row_merge_buf_t*	buf	= merge_buf[i];
 			merge_file_t*		file	= &files[i];
@@ -2287,6 +2329,7 @@ write_buffers:
 
 				continue;
 			}
+			
 
 			if (UNIV_LIKELY
 			    (row && (rows_added = row_merge_buf_add(
