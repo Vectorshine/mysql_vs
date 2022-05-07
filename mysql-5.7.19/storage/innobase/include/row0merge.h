@@ -42,7 +42,6 @@ Created 13/06/2005 Jan Lindstrom
 
 // Forward declaration
 struct ib_sequence_t;
-static bool USE_BF = true;
 
 /** @brief Block size for I/O operations in merge sort.
 

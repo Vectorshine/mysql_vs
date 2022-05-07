@@ -91,6 +91,8 @@ offsets[] array, first passed to rec_get_offsets() */
 #define REC_OFFS_NORMAL_SIZE	100
 #define REC_OFFS_SMALL_SIZE	10
 
+dict_index_t* row_merge_create_bf_index(const dict_index_t*		index);
+
 /******************************************************//**
 The following function is used to get the pointer of the next chained record
 on the same page.

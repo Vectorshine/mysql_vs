@@ -28,7 +28,6 @@ Created 5/30/1994 Heikki Tuuri
 #ifdef UNIV_NONINL
 #include "rem0rec.ic"
 #endif
-
 #include "page0page.h"
 #include "mtr0mtr.h"
 #include "mtr0log.h"
@@ -805,6 +804,7 @@ rec_get_converted_size_comp_prefix_low(
 	ulint	i;
 	ulint	n_null	= (n_fields > 0) ? index->n_nullable : 0;
 	ulint	n_v_fields;
+	ulint   origin_extra_size;
 	ut_ad(n_fields <= dict_index_get_n_fields(index));
 	ut_ad(!temp || extra);
 
@@ -813,7 +813,7 @@ rec_get_converted_size_comp_prefix_low(
 	ut_ad(!v_entry || (dict_index_is_clust(index) && temp));
 	n_v_fields = v_entry ? dtuple_get_n_v_fields(v_entry) : 0;
 
-	extra_size = temp
+	origin_extra_size=extra_size = temp
 		? UT_BITS_IN_BYTES(n_null)
 		: REC_N_NEW_EXTRA_BYTES
 		+ UT_BITS_IN_BYTES(n_null);
@@ -847,7 +847,7 @@ rec_get_converted_size_comp_prefix_low(
 				ut_ad(type->mtype == DATA_SYS_CHILD
 				      || dict_col_type_assert_equal(col, type));
 			}
-		} else {
+		} else if(!USE_BF){
 			ut_ad(dict_col_type_assert_equal(col, type));
 		}
 #endif
@@ -860,12 +860,12 @@ rec_get_converted_size_comp_prefix_low(
 			ut_ad(!(col->prtype & DATA_NOT_NULL));
 			continue;
 		}
-
+		/*
 		ut_ad(len <= col->len || DATA_LARGE_MTYPE(col->mtype)
                       || (DATA_POINT_MTYPE(col->mtype)
 			  && len == DATA_MBR_LEN)
 		      || (col->len == 0 && col->mtype == DATA_VARCHAR));
-
+		*/
 		fixed_len = field->fixed_len;
 		if (temp && fixed_len
 		    && !dict_col_get_fixed_size(col, temp)) {
@@ -912,6 +912,11 @@ rec_get_converted_size_comp_prefix_low(
 			is a prefix index column shorter than 256 bytes,
 			this will waste one byte. */
 			extra_size += 2;
+		}
+		if (USE_BF&&index->type==0) {
+			data_size += 2 * len + 2 * 8;
+			extra_size += (extra_size - origin_extra_size);
+			break;
 		}
 		data_size += len;
 	}
@@ -1311,6 +1316,7 @@ rec_convert_dtuple_to_rec_comp(
 		ut_ad(!dfield_is_null(field));
 
 		ifield = dict_index_get_nth_field(index, i);
+		
 		fixed_len = ifield->fixed_len;
 		col = ifield->col;
 		if (temp && fixed_len
@@ -1460,7 +1466,6 @@ rec_convert_dtuple_to_rec(
 					externally stored columns */
 {
 	rec_t*	rec;
-
 	ut_ad(buf != NULL);
 	ut_ad(index != NULL);
 	ut_ad(dtuple != NULL);
@@ -1482,7 +1487,7 @@ rec_convert_dtuple_to_rec(
 		rec_offs_init(offsets_);
 
 		offsets = rec_get_offsets(rec, index,
-					  offsets_, ULINT_UNDEFINED, &heap);
+				offsets_, ULINT_UNDEFINED, &heap);
 		ut_ad(rec_validate(rec, offsets));
 		ut_ad(dtuple_get_n_fields(dtuple)
 		      == rec_offs_n_fields(offsets));
