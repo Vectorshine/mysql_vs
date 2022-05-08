@@ -1900,6 +1900,40 @@ row_merge_create_bf_index(
 	field->col->max_prefix = 0;
 	field->prefix_len = 0;
 
+
+	new_index->heap = index->heap;
+	new_index->table_name = index->table_name;
+	new_index->table = index->table;
+	new_index->space = index->space;
+	new_index->page = index->page;
+	new_index->merge_threshold = index->merge_threshold;
+	new_index->type = index->type;
+	new_index->trx_id_offset = index->trx_id_offset;
+	new_index->n_user_defined_cols = index->n_user_defined_cols;
+	new_index->allow_duplicates = index->allow_duplicates;
+	new_index->nulls_equal = index->nulls_equal;
+	new_index->disable_ahi = index->disable_ahi;
+	new_index->cached = index->cached;
+	new_index->to_be_dropped = index->to_be_dropped;
+	new_index->online_status = index->online_status;
+	new_index->uncommitted = index->uncommitted;
+	new_index->magic_n = index->magic_n;
+	new_index->has_new_v_col = index->has_new_v_col;
+	new_index->indexes = index->indexes;
+	new_index->search_info = index->search_info;
+	new_index->online_log = index->online_log;
+	new_index->stat_n_diff_key_vals = index->stat_n_diff_key_vals;
+	new_index->stat_index_size = index->stat_index_size;
+	new_index->stat_n_leaf_pages = index->stat_n_leaf_pages;
+	new_index->last_ins_cur = index->last_ins_cur;
+	new_index->last_sel_cur = index->last_sel_cur;
+	new_index->rec_cache = index->rec_cache;
+	//new_index->rtr_ssn = index->rtr_ssn;
+	new_index->rtr_track = index->rtr_track;
+	new_index->trx_id = index->trx_id;
+	new_index->zip_pad = index->zip_pad;
+	new_index->lock = index->lock;
+
 	return(new_index);
 }
 static MY_ATTRIBUTE((warn_unused_result))
@@ -2719,39 +2753,6 @@ write_buffers:
 					if (USE_BF && (!index[0]->type) && i == 0)
 					{
 						bf_index = row_merge_create_bf_index(index[0]);
-						bf_index->heap = index[i]->heap;
-						bf_index->table_name = index[i]->table_name;
-						bf_index->table = index[i]->table;
-						bf_index->space = index[i]->space;
-						bf_index->page = index[i]->page;
-						bf_index->merge_threshold = index[i]->merge_threshold;
-						bf_index->type = index[i]->type;
-						bf_index->trx_id_offset = index[i]->trx_id_offset;
-						bf_index->n_user_defined_cols = index[i]->n_user_defined_cols;
-						bf_index->allow_duplicates = index[i]->allow_duplicates;
-						bf_index->nulls_equal = index[i]->nulls_equal;
-						bf_index->disable_ahi = index[i]->disable_ahi;
-						bf_index->cached = index[i]->cached;
-						bf_index->to_be_dropped = index[i]->to_be_dropped;
-						bf_index->online_status = index[i]->online_status;
-						bf_index->uncommitted = index[i]->uncommitted;
-						bf_index->magic_n = index[i]->magic_n;
-						bf_index->has_new_v_col = index[i]->has_new_v_col;
-						bf_index->indexes = index[i]->indexes;
-						bf_index->search_info = index[i]->search_info;
-						bf_index->online_log = index[i]->online_log;
-						bf_index->stat_n_diff_key_vals = index[i]->stat_n_diff_key_vals;
-						bf_index->stat_index_size = index[i]->stat_index_size;
-						bf_index->stat_n_leaf_pages = index[i]->stat_n_leaf_pages;
-						bf_index->last_ins_cur = index[i]->last_ins_cur;
-						bf_index->last_sel_cur = index[i]->last_sel_cur;
-						bf_index->rec_cache = index[i]->rec_cache;
-						//bf_index->rtr_ssn = index[i]->rtr_ssn;
-						bf_index->rtr_track = index[i]->rtr_track;
-						bf_index->trx_id = index[i]->trx_id;
-						bf_index->zip_pad = index[i]->zip_pad;
-						bf_index->lock = index[i]->lock;
-
 					}
 					else
 						bf_index = index[i];
