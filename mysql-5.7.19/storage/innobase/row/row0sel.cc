@@ -5421,6 +5421,7 @@ wrong_offs:
 			strncpy(data, datatemp, leng);
 			i=i;
 		}
+		change_cur_field = 0;
 		if (0 != cmp_dtuple_rec(search_tuple, rec, offsets)) {
 
 			if (set_also_gap_locks
