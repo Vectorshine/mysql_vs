@@ -929,7 +929,7 @@ cmp_dtuple_rec_with_match_bytes(
 		const char *temp_table_name = index->table_name;
 		strncpy(temp, temp_table_name, 4);
 		int flag = strcmp(temp, temp2);
-		if (change_cur_field == 1){
+		if (USE_BF && change_cur_field == 1){
 			rec_b_ptr = rec_get_nth_field(rec, offsets,
 				cur_field + 1, &rec_f_len);
 			change_cur_field = -1;
@@ -1066,7 +1066,7 @@ cmp_dtuple_rec(
 	ulint	matched_fields	= 0;
 
 	ut_ad(rec_offs_validate(rec, NULL, offsets));
-	if(USE_BF)
+	if(USE_BF && change_cur_field >=0)
 		return(cmp_dtuple_rec_with_match_bf(dtuple, rec, offsets,
 						&matched_fields));
 	else
