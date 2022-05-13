@@ -899,6 +899,25 @@ up_rec_match:
 	}
 
 	if (mode <= PAGE_CUR_GE) {
+		char temp[5] = { 0 };
+		const char *temp_table_name = index->table_name;
+		strncpy(temp, temp_table_name, 4);
+		int flag = strcmp(temp, "SYS_");
+		if (USE_BF&&flag) {
+			cmp = 1;
+			while (change_cur_field == 0 && cmp > 0 && !page_rec_is_supremum(up_rec)) {
+				change_cur_field++;
+				offsets = rec_get_offsets(
+					up_rec, index, offsets_,
+					dtuple_get_n_fields_cmp(tuple), &heap);
+				cmp = cmp_dtuple_rec_with_match_bytes(
+					tuple, up_rec, index, offsets,
+					&cur_matched_fields, &cur_matched_bytes);//cmp > 0±Ì æ tuple <= up
+				up_rec = page_rec_get_next_const(up_rec);
+			}
+			up_matched_fields = cur_matched_fields;
+			up_matched_bytes = cur_matched_bytes;
+		}
 		page_cur_position(up_rec, block, cursor);
 	} else {
 		page_cur_position(low_rec, block, cursor);

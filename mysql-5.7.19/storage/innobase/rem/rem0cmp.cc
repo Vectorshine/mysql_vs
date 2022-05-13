@@ -655,6 +655,93 @@ cmp_data_data(
 	return(cmp_data(mtype, prtype, data1, len1, data2, len2));
 }
 
+int
+cmp_dtuple_rec_with_match_low_bf(
+	const dtuple_t*	dtuple,
+	const rec_t*	rec,
+	const ulint*	offsets,
+	ulint		n_cmp,
+	ulint*		matched_fields)
+{
+	ulint		cur_field;	/* current field number */
+	int		ret1;		/* return value */
+	int     ret2;
+	int		ret;/*ret = (ret1>=0 && ret2 <=0)*/
+
+	ut_ad(dtuple_check_typed(dtuple));
+	ut_ad(rec_offs_validate(rec, NULL, offsets));
+
+	cur_field = *matched_fields;
+
+	ut_ad(n_cmp > 0);
+	ut_ad(n_cmp <= dtuple_get_n_fields(dtuple));
+	ut_ad(cur_field <= n_cmp);
+	ut_ad(cur_field <= rec_offs_n_fields(offsets));
+
+	if (cur_field == 0) {
+		ulint	rec_info = rec_get_info_bits(rec,
+			rec_offs_comp(offsets));
+		ulint	tup_info = dtuple_get_info_bits(dtuple);
+
+		if (UNIV_UNLIKELY(rec_info & REC_INFO_MIN_REC_FLAG)) {
+			ret = !(tup_info & REC_INFO_MIN_REC_FLAG);
+			goto order_resolved;
+		}
+		else if (UNIV_UNLIKELY(tup_info & REC_INFO_MIN_REC_FLAG)) {
+			ret = -1;
+			goto order_resolved;
+		}
+	}
+
+	/* Match fields in a loop */
+
+	for (; cur_field < n_cmp; cur_field++) {
+		const byte*	rec_b_ptr;
+		const byte*	rec_b_ptr2;
+		const dfield_t*	dtuple_field
+			= dtuple_get_nth_field(dtuple, cur_field);
+		const byte*	dtuple_b_ptr
+			= static_cast<const byte*>(
+				dfield_get_data(dtuple_field));
+		const dtype_t*	type
+			= dfield_get_type(dtuple_field);
+		ulint		dtuple_f_len
+			= dfield_get_len(dtuple_field);
+		ulint		rec_f_len;
+		ulint		rec_f_len2;
+
+		/* We should never compare against an externally
+		stored field.  Only clustered index records can
+		contain externally stored fields, and the first fields
+		(primary key fields) should already differ. */
+		ut_ad(!rec_offs_nth_extern(offsets, cur_field));
+
+		rec_b_ptr = rec_get_nth_field(rec, offsets, cur_field,
+			&rec_f_len);
+		rec_b_ptr2 = rec_get_nth_field(rec, offsets, cur_field + 1,
+			&rec_f_len2);
+
+		ut_ad(!dfield_is_ext(dtuple_field));
+
+		ret1 = cmp_data(type->mtype, type->prtype,
+			dtuple_b_ptr, dtuple_f_len,
+			rec_b_ptr, rec_f_len);
+
+		ret2 = cmp_data(type->mtype, type->prtype,
+			dtuple_b_ptr, dtuple_f_len,
+			rec_b_ptr2, rec_f_len2);
+		ret = (ret1 >= 0 && ret2 <= 0);
+		if (ret) {
+			goto order_resolved;
+		}
+	}
+
+	ret = 0;	/* If we ran out of fields, dtuple was equal to rec
+			up to the common fields */
+order_resolved:
+	*matched_fields = cur_field;
+	return(ret);
+}
 /** Compare a data tuple to a physical record.
 @param[in] dtuple data tuple
 @param[in] rec B-tree record
@@ -836,8 +923,20 @@ cmp_dtuple_rec_with_match_bytes(
 
 		dtuple_b_ptr = static_cast<const byte*>(
 			dfield_get_data(dfield));
-		rec_b_ptr = rec_get_nth_field(rec, offsets,
-					      cur_field, &rec_f_len);
+		char temp[5] = { 0 };
+		char temp2[5];
+		strcpy(temp2, "SYS_");
+		const char *temp_table_name = index->table_name;
+		strncpy(temp, temp_table_name, 4);
+		int flag = strcmp(temp, temp2);
+		if (change_cur_field == 1){
+			rec_b_ptr = rec_get_nth_field(rec, offsets,
+				cur_field + 1, &rec_f_len);
+			change_cur_field = -1;
+		}
+		else
+			rec_b_ptr = rec_get_nth_field(rec, offsets,
+				cur_field, &rec_f_len);
 		ut_ad(!rec_offs_nth_extern(offsets, cur_field));
 
 		/* If we have matched yet 0 bytes, it may be that one or
@@ -967,8 +1066,12 @@ cmp_dtuple_rec(
 	ulint	matched_fields	= 0;
 
 	ut_ad(rec_offs_validate(rec, NULL, offsets));
-	return(cmp_dtuple_rec_with_match(dtuple, rec, offsets,
-					 &matched_fields));
+	if(USE_BF)
+		return(cmp_dtuple_rec_with_match_bf(dtuple, rec, offsets,
+						&matched_fields));
+	else
+		return(cmp_dtuple_rec_with_match(dtuple, rec, offsets,
+			&matched_fields));
 }
 
 /**************************************************************//**

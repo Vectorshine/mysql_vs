@@ -2654,6 +2654,7 @@ dict_index_add_to_cache_w_vcol(
 		ut_ad(field->col->ord_part == 1);
 	}
 
+
 	new_index->stat_n_diff_key_vals =
 		static_cast<ib_uint64_t*>(mem_heap_zalloc(
 			new_index->heap,
@@ -2879,8 +2880,12 @@ dict_index_find_cols(
 	ut_ad(table != NULL && index != NULL);
 	ut_ad(table->magic_n == DICT_TABLE_MAGIC_N);
 	ut_ad(mutex_own(&dict_sys->mutex) || dict_table_is_intrinsic(table));
-
-	for (ulint i = 0; i < index->n_fields; i++) {
+	ulint end;
+	if (USE_BF&& !index->type)
+		end = 1;
+	else
+		end = index->n_fields;
+	for (ulint i = 0; i < end; i++) {
 		ulint		j;
 		dict_field_t*	field = dict_index_get_nth_field(index, i);
 
@@ -3376,6 +3381,7 @@ dict_index_build_internal_non_clust(
 	ut_ad(dict_index_is_clust(clust_index));
 	ut_ad(!dict_index_is_ibuf(clust_index));
 
+	
 	/* Create a new index */
 	new_index = dict_mem_index_create(
 		table->name.m_name, index->name, index->space, index->type,

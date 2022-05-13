@@ -1840,7 +1840,7 @@ row_merge_create_bf_index(
 	dict_field_t*   idx_field;
 
 	new_index = dict_mem_index_create(
-		index->table->name.m_name, "bf_idx", 0, 0, 4);
+		index->table->name.m_name, index->name, 0, 0, 4);
 
 	new_index->id = index->id;
 	new_index->table = index->table;
@@ -5587,7 +5587,6 @@ row_merge_create_index(
 	err = row_merge_create_index_graph(trx, table, index, add_v);
 
 	if (err == DB_SUCCESS) {
-
 		index = dict_table_get_index_on_name(table, index_def->name,
 			index_def->rebuild);
 
