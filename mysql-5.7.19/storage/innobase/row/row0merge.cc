@@ -1878,7 +1878,7 @@ row_merge_create_bf_index(
 		mem_heap_alloc(new_index->heap, sizeof(dict_col_t)));
 	field->col->len = 8;
 	field->col->mtype = 6;
-	field->col->prtype = 0x408;
+	field->col->prtype = 0x508;
 	field->col->mbminmaxlen = 0;
 	field->fixed_len = 8;
 	field->col->ind = 4;
@@ -1892,7 +1892,7 @@ row_merge_create_bf_index(
 		mem_heap_alloc(new_index->heap, sizeof(dict_col_t)));
 	field->col->len = 8;
 	field->col->mtype = 6;
-	field->col->prtype = 0x408;
+	field->col->prtype = 0x508;
 	field->col->mbminmaxlen = 0;
 	field->fixed_len = 8;
 	field->col->ind = 4;

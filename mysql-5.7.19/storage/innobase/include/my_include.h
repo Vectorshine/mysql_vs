@@ -96,7 +96,6 @@ int update_total_num(char *fileName)
 	ModifyLineData(fileName, 1, st);
 	return now_total_num;
 }
-//向指定文件的最后一行写入数据
 int write_fp(char *fileName, vector<char> bf_array)//返回值是当前总行数（除了第一行）。 
 {
 	FILE *fp = NULL;

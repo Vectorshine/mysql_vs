@@ -128,7 +128,7 @@ row_build_index_entry_low_bf(
 		dfield->spatial_status = 2;
 		dfield->len = 8;
 
-		dfield->type.prtype = 0x408;
+		dfield->type.prtype = 0x508;
 		dfield->type.mtype = 6;
 		dfield->type.len = 8;
 		dfield->type.mbminmaxlen = 0;
@@ -145,7 +145,7 @@ row_build_index_entry_low_bf(
 		dfield->spatial_status = 2;
 		dfield->len = 8;
 
-		dfield->type.prtype = 0x408;
+		dfield->type.prtype = 0x508;
 		dfield->type.mtype = 6;
 		dfield->type.len = 8;
 		dfield->type.mbminmaxlen = 0;
