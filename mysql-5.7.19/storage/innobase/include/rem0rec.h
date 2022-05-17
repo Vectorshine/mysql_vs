@@ -460,35 +460,13 @@ rec_get_offsets_func(
 	mem_heap_t**		heap)	/*!< in/out: memory heap */
 	MY_ATTRIBUTE((warn_unused_result));
 
-ulint*
-rec_get_offsets_func_bf(
-	/*=================*/
-	const rec_t*		rec,	/*!< in: physical record */
-	const dict_index_t*	index,	/*!< in: record descriptor */
-	ulint*			offsets,/*!< in/out: array consisting of
-					offsets[0] allocated elements,
-					or an array from rec_get_offsets(),
-					or NULL */
-	ulint			n_fields,/*!< in: maximum number of
-					initialized fields
-					 (ULINT_UNDEFINED if all fields) */
-#ifdef UNIV_DEBUG
-	const char*		file,	/*!< in: file name where called */
-	ulint			line,	/*!< in: line number where called */
-#endif /* UNIV_DEBUG */
-	mem_heap_t**		heap)	/*!< in/out: memory heap */
-	MY_ATTRIBUTE((warn_unused_result));
 
 #ifdef UNIV_DEBUG
 # define rec_get_offsets(rec,index,offsets,n,heap)			\
 	rec_get_offsets_func(rec,index,offsets,n,__FILE__,__LINE__,heap)
-# define rec_get_offsets_bf(rec,index,offsets,n,heap)			\
-	rec_get_offsets_func_bf(rec,index,offsets,n,__FILE__,__LINE__,heap)
 #else /* UNIV_DEBUG */
 # define rec_get_offsets(rec, index, offsets, n, heap)	\
 	rec_get_offsets_func(rec, index, offsets, n, heap)
-# define rec_get_offsets_bf(rec, index, offsets, n, heap)	\
-	rec_get_offsets_func_bf(rec, index, offsets, n, heap)
 #endif /* UNIV_DEBUG */
 
 /******************************************************//**
