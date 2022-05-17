@@ -666,7 +666,7 @@ cmp_dtuple_rec_with_match_low_bf(
 	ulint		cur_field;	/* current field number */
 	int		ret1;		/* return value */
 	int     ret2;
-	int		ret;/*ret = (ret1>=0 && ret2 <=0)*/
+	int		ret;/*ret = !(ret1>=0 && ret2 <=0)*/
 
 	ut_ad(dtuple_check_typed(dtuple));
 	ut_ad(rec_offs_validate(rec, NULL, offsets));
@@ -730,7 +730,7 @@ cmp_dtuple_rec_with_match_low_bf(
 		ret2 = cmp_data(type->mtype, type->prtype,
 			dtuple_b_ptr, dtuple_f_len,
 			rec_b_ptr2, rec_f_len2);
-		ret = (ret1 >= 0 && ret2 <= 0);
+		ret = !(ret1 >= 0 && ret2 <= 0);
 		if (ret) {
 			goto order_resolved;
 		}
@@ -1066,13 +1066,25 @@ cmp_dtuple_rec(
 	ulint	matched_fields	= 0;
 
 	ut_ad(rec_offs_validate(rec, NULL, offsets));
-	if(USE_BF && change_cur_field >=0)
-		return(cmp_dtuple_rec_with_match_bf(dtuple, rec, offsets,
-						&matched_fields));
-	else
-		return(cmp_dtuple_rec_with_match(dtuple, rec, offsets,
+
+	return(cmp_dtuple_rec_with_match(dtuple, rec, offsets,
 			&matched_fields));
 }
+
+int
+cmp_dtuple_rec_bf(
+	const dtuple_t*	dtuple,
+	const rec_t*	rec,
+	const ulint*	offsets)
+{
+	ulint	matched_fields = 0;
+
+	ut_ad(rec_offs_validate(rec, NULL, offsets));
+	
+	return(cmp_dtuple_rec_with_match_bf(dtuple, rec, offsets,
+		&matched_fields));
+}
+
 
 /**************************************************************//**
 Checks if a dtuple is a prefix of a record. The last field in dtuple

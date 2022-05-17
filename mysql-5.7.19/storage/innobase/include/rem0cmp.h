@@ -161,6 +161,11 @@ cmp_dtuple_rec_with_match_bytes(
 	ulint*			matched_fields,
 	ulint*			matched_bytes)
 	MY_ATTRIBUTE((warn_unused_result));
+int
+cmp_dtuple_rec_bf(
+	const dtuple_t*	dtuple,
+	const rec_t*	rec,
+	const ulint*	offsets);
 /** Compare a data tuple to a physical record.
 @see cmp_dtuple_rec_with_match
 @param[in] dtuple data tuple

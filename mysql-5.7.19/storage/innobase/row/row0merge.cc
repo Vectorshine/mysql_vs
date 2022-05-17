@@ -1838,7 +1838,7 @@ row_merge_create_bf_index(
 	dict_index_t*   new_index;
 	dict_field_t*   field;
 	dict_field_t*   idx_field;
-
+	ulint len = 0;
 	new_index = dict_mem_index_create(
 		index->table->name.m_name, index->name, 0, 0, 4);
 
@@ -1860,6 +1860,7 @@ row_merge_create_bf_index(
 		field->col = idx_field->col;
 		field->name = idx_field->name;
 		field->fixed_len = idx_field->fixed_len;
+		len = idx_field->fixed_len;
 		field->prefix_len = idx_field->prefix_len;
 	}
 	/*The second field*/
@@ -1867,7 +1868,8 @@ row_merge_create_bf_index(
 		field = dict_index_get_nth_field(new_index, 1);
 		field->col = idx_field->col;
 		field->name = idx_field->name;
-		field->fixed_len = idx_field->fixed_len;
+		len += idx_field->fixed_len;
+		field->fixed_len = len;
 		field->prefix_len = idx_field->prefix_len;
 	}
 
@@ -1880,7 +1882,8 @@ row_merge_create_bf_index(
 	field->col->mtype = 6;
 	field->col->prtype = 0x508;
 	field->col->mbminmaxlen = 0;
-	field->fixed_len = 8;
+	len += 8;
+	field->fixed_len = len;
 	field->col->ind = 4;
 	field->col->ord_part = 1;
 	field->col->max_prefix = 0;
@@ -1894,7 +1897,8 @@ row_merge_create_bf_index(
 	field->col->mtype = 6;
 	field->col->prtype = 0x508;
 	field->col->mbminmaxlen = 0;
-	field->fixed_len = 8;
+	len += 8;
+	field->fixed_len = len;
 	field->col->ind = 4;
 	field->col->ord_part = 1;
 	field->col->max_prefix = 0;
@@ -2151,14 +2155,12 @@ row_merge_read_clustered_index_bf(
 	uint rec_num = page_get_n_recs(page);
 	vector<char> bf_array(rec_num);
 	int cur_rec = 0;//当前是该页第几个记录 
-	char *min_data;
-	char *max_data;
-	rec_t*	min_rec;
-	rec_t*	max_rec;
+	char min_data[50] = { 0 };
+	char max_data[50] = { 0 };
 	dtuple_t*	row1;
 	dtuple_t*	row2;
 	bool is_last = false;
-
+	bool flag3 = false;
 	/* Scan the clustered index. */
 	for (;;) {
 		rec_t*	rec;
@@ -2184,7 +2186,7 @@ row_merge_read_clustered_index_bf(
 			continue;
 		}
 
-		if (now_page_no != old_page_no || is_last && (!flag2)) {//即将到了新页 
+		if (now_page_no != old_page_no || flag2 && is_last&& !flag3) {//即将到了新页 
 			//将bf数组放在申请好的页       
 			int line_num = write_fp(fileName, bf_array);
 			//将收集的数据构建一个新的元组   row=build_bfindex();	
@@ -2201,10 +2203,11 @@ row_merge_read_clustered_index_bf(
 			bf_array.assign(rec_num, 0);
 			cur_rec = 0;
 			old_page_no = now_page_no;
+			flag3 = true;
 			//插入到buf
 			goto what;
 		}
-		if (is_last) {
+		if (is_last&&flag3) {
 
 			stage->inc();
 
@@ -2348,22 +2351,27 @@ end_of_index:
 
 		if (cur_rec == 2) //如果是第一个记录
 		{
-			min_data = data;
-			max_data = data;
-			min_rec = rec;
-			max_rec = rec;
+			strcpy(min_data, data);
+			strcpy(max_data, data);
 			row1 = temp_row;
 			row2 = temp_row;
 		}
 		else {//如果不是第一个记录，更新最大值和最小值 
-			min_data = min_data > data ? data : min_data;
-			if (min_data == data) {
-				min_rec = rec;
-				row1 = temp_row;
+			if (strcmp(min_data,data) > 0){
+				strcpy(min_data, data);
+				mem_heap_t*		heap;
+				ulint* ofsets;
+				mrec_buf_t*		buf;
+				heap = mem_heap_create(sizeof *buf + 7 * sizeof *ofsets);
+				row1 = dtuple_copy(temp_row, heap);
 			}
-			max_data = min_data < data ? data : min_data;
-			if (max_data == data) {
-				row2 = temp_row;
+			else if (strcmp(max_data, data) < 0) {
+				strcpy(max_data, data);
+				mem_heap_t*		heap;
+				ulint* ofsets;
+				mrec_buf_t*		buf;
+				heap = mem_heap_create(sizeof *buf + 7 * sizeof *ofsets);
+				row2 = dtuple_copy(temp_row, heap);
 			}
 		}
 		bloom_insert(bf_array, data, 1);

@@ -355,6 +355,73 @@ resolved:
 		= (rec - (lens + 1)) | REC_OFFS_COMPACT | any_ext;
 }
 
+UNIV_INLINE MY_ATTRIBUTE((nonnull))
+void
+rec_init_offsets_comp_ordinary_bf(
+	/*===========================*/
+	const rec_t*		rec,	/*!< in: physical record in
+					ROW_FORMAT=COMPACT */
+	bool			temp,	/*!< in: whether to use the
+					format for temporary files in
+					index creation */
+	const dict_index_t*	index,	/*!< in: record descriptor */
+	ulint*			offsets)/*!< in/out: array of offsets;
+					in: n=rec_offs_n_fields(offsets) */
+{
+	ulint		i = 0;
+	ulint		offs = 0;
+	ulint		any_ext = 0;
+	ulint		n_null = 2 * index->n_nullable;
+	const byte*	nulls = temp
+		? rec - 1
+		: rec - (1 + REC_N_NEW_EXTRA_BYTES);
+	const byte*	lens = nulls - UT_BITS_IN_BYTES(n_null);
+	ulint		null_mask = 1;
+
+#ifdef UNIV_DEBUG
+	/* We cannot invoke rec_offs_make_valid() here if temp=true.
+	Similarly, rec_offs_validate() will fail in that case, because
+	it invokes rec_get_status(). */
+	offsets[2] = (ulint)rec;
+	offsets[3] = (ulint)index;
+#endif /* UNIV_DEBUG */
+
+	ut_ad(temp || dict_table_is_comp(index->table));
+
+	if (temp && dict_table_is_comp(index->table)) {
+		/* No need to do adjust fixed_len=0. We only need to
+		adjust it for ROW_FORMAT=REDUNDANT. */
+		temp = false;
+	}
+
+	/* read the lengths of fields 0..n */
+	do {
+		const dict_field_t*	field
+			= dict_index_get_nth_field(index, 0);
+		const dict_col_t*	col
+			= dict_field_get_col(field);
+		ulint			len;
+
+		if (!field->fixed_len
+			|| (temp && !dict_col_get_fixed_size(col, temp))) {
+			ut_ad(col->mtype != DATA_POINT);
+			len = *lens--;
+
+			len = offs += len;
+		}
+		else {
+			len = offs += field->fixed_len;
+		}
+		rec_offs_base(offsets)[i + 1] = len;
+	} while (++i < 2);
+
+	rec_offs_base(offsets)[i + 1] = offs + 8;
+	rec_offs_base(offsets)[i + 2] = offs + 16;
+	*rec_offs_base(offsets)
+		= (rec - (lens + 1)) | REC_OFFS_COMPACT | any_ext;
+}
+
+
 /******************************************************//**
 The following function determines the offsets to each field in the
 record.	 The offsets are written to a previously allocated array of
@@ -527,6 +594,30 @@ resolved:
 	}
 }
 
+static
+void
+rec_init_offsets_bf(
+	/*=============*/
+	const rec_t*		rec,	/*!< in: physical record */
+	const dict_index_t*	index,	/*!< in: record descriptor */
+	ulint*			offsets)/*!< in/out: array of offsets;
+					in: n=rec_offs_n_fields(offsets) */
+{
+	ulint	i = 0;
+	ulint	offs;
+
+	if (dict_table_is_comp(index->table)) {
+		const byte*	nulls;
+		const byte*	lens;
+		dict_field_t*	field;
+		ulint		null_mask;
+		ulint		status = rec_get_status(rec);
+		ulint		n_node_ptr_field = ULINT_UNDEFINED;
+
+		rec_init_offsets_comp_ordinary_bf(
+			rec, false, index, offsets);
+	}
+}
 /******************************************************//**
 The following function determines the offsets to each field
 in the record.	It can reuse a previously returned array.
@@ -584,7 +675,6 @@ rec_get_offsets_func(
 	if (UNIV_UNLIKELY(n_fields < n)) {
 		n = n_fields;
 	}
-
 	/* The offsets header consists of the allocation size at
 	offsets[0] and the REC_OFFS_HEADER_SIZE bytes. */
 	size = n + (1 + REC_OFFS_HEADER_SIZE);
@@ -606,6 +696,81 @@ rec_get_offsets_func(
 	return(offsets);
 }
 
+ulint*
+rec_get_offsets_func_bf(
+	/*=================*/
+	const rec_t*		rec,	/*!< in: physical record */
+	const dict_index_t*	index,	/*!< in: record descriptor */
+	ulint*			offsets,/*!< in/out: array consisting of
+					offsets[0] allocated elements,
+					or an array from rec_get_offsets(),
+					or NULL */
+	ulint			n_fields,/*!< in: maximum number of
+					initialized fields
+					 (ULINT_UNDEFINED if all fields) */
+#ifdef UNIV_DEBUG
+	const char*		file,	/*!< in: file name where called */
+	ulint			line,	/*!< in: line number where called */
+#endif /* UNIV_DEBUG */
+	mem_heap_t**		heap)	/*!< in/out: memory heap */
+{
+	ulint	n;
+	ulint	size;
+
+	ut_ad(rec);
+	ut_ad(index);
+	ut_ad(heap);
+
+	if (dict_table_is_comp(index->table)) {
+		switch (UNIV_EXPECT(rec_get_status(rec),
+			REC_STATUS_ORDINARY)) {
+		case REC_STATUS_ORDINARY:
+			n = dict_index_get_n_fields(index);
+			break;
+		case REC_STATUS_NODE_PTR:
+			/* Node pointer records consist of the
+			uniquely identifying fields of the record
+			followed by a child page number field. */
+			n = dict_index_get_n_unique_in_tree_nonleaf(index) + 1;
+			break;
+		case REC_STATUS_INFIMUM:
+		case REC_STATUS_SUPREMUM:
+			/* infimum or supremum record */
+			n = 1;
+			break;
+		default:
+			ut_error;
+			return(NULL);
+		}
+	}
+	else {
+		n = rec_get_n_fields_old(rec);
+	}
+
+	if (UNIV_UNLIKELY(n_fields < n)) {
+		n = n_fields;
+	}
+	n = 4;
+	/* The offsets header consists of the allocation size at
+	offsets[0] and the REC_OFFS_HEADER_SIZE bytes. */
+	size = n + (1 + REC_OFFS_HEADER_SIZE);
+
+	if (UNIV_UNLIKELY(!offsets)
+		|| UNIV_UNLIKELY(rec_offs_get_n_alloc(offsets) < size)) {
+		if (UNIV_UNLIKELY(!*heap)) {
+			*heap = mem_heap_create_at(size * sizeof(ulint),
+				file, line);
+		}
+		offsets = static_cast<ulint*>(
+			mem_heap_alloc(*heap, size * sizeof(ulint)));
+
+		rec_offs_set_n_alloc(offsets, size);
+	}
+
+	rec_offs_set_n_fields(offsets, n);
+	rec_init_offsets_bf(rec, index, offsets);
+	return(offsets);
+}
 /******************************************************//**
 The following function determines the offsets to each field
 in the record.  It can reuse a previously allocated array. */

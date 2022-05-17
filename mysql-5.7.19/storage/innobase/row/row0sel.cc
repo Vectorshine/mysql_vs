@@ -4639,8 +4639,9 @@ row_search_mvcc(
 	ulint		direction)
 {
 	DBUG_ENTER("row_search_mvcc");
-
-	dict_index_t*	index		= prebuilt->index;
+	if(USE_BF && !dict_index_is_clust(prebuilt->index))
+		prebuilt->index = row_merge_create_bf_index(prebuilt->index);
+	dict_index_t*	index	= prebuilt->index;
 	ibool		comp		= dict_table_is_comp(index->table);
 	const dtuple_t*	search_tuple	= prebuilt->search_tuple;
 	btr_pcur_t*	pcur		= prebuilt->pcur;
@@ -5421,8 +5422,7 @@ wrong_offs:
 			strncpy(data, datatemp, leng);
 			i=i;
 		}
-		change_cur_field = 0;
-		if (0 != cmp_dtuple_rec(search_tuple, rec, offsets)) {
+		if (0 != cmp_dtuple_rec_bf(search_tuple, rec, offsets)) {
 
 			if (set_also_gap_locks
 			    && !(srv_locks_unsafe_for_binlog
@@ -5768,9 +5768,11 @@ locks_ok:
 
 		goto next_rec;
 	}
-
+	int if_match = ICP_MATCH;
+	if (!USE_BF)
+		if_match = row_search_idx_cond_check(buf, prebuilt, rec, offsets);
 	/* Check if the record matches the index condition. */
-	switch (row_search_idx_cond_check(buf, prebuilt, rec, offsets)) {
+	switch (if_match) {
 	case ICP_NO_MATCH:
 		if (did_semi_consistent_read) {
 			row_unlock_for_mysql(prebuilt, TRUE);
