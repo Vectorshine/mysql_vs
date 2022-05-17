@@ -2161,6 +2161,13 @@ row_merge_read_clustered_index_bf(
 	dtuple_t*	row2;
 	bool is_last = false;
 	bool flag3 = false;
+
+	const dict_field_t*	temp_ind_field = NULL;
+	const dict_col_t*	temp_col;
+	ulint			temp_col_no = 0;
+	temp_ind_field = dict_index_get_nth_field(index[0], 0);
+	temp_col = temp_ind_field->col;
+	temp_col_no = dict_col_get_no(temp_col);
 	/* Scan the clustered index. */
 	for (;;) {
 		rec_t*	rec;
@@ -2198,6 +2205,19 @@ row_merge_read_clustered_index_bf(
 				index[0], heap, ROW_BUILD_FOR_INSERT, row2, line_num, old_page_no);
 			//关于构建元组在row_merge_insert_index_tuples中 
 			//清空并构建新的数组
+			ulint leng;
+			const char*	datatemp;
+			char data[50] = { "" };
+			for (ulint i = 0; i < row->n_fields; i++) {
+				leng = dfield_get_len(row->fields + i);
+				datatemp = (const char*)((row->fields + i)->data);
+				if (i >= 2)
+				{
+					int *a  = (int*)(((row->fields + i)->data));
+					i = i;
+				}
+				strncpy(data, datatemp, leng);
+			}
 			rec_num = page_get_n_recs(page);
 			bf_array.resize(rec_num);
 			bf_array.assign(rec_num, 0);
@@ -2343,11 +2363,9 @@ end_of_index:
 		ulint leng;
 		const char*	datatemp;
 		char data[50] = { "" };
-		for (ulint i = 1; i < 2; i++) {
-			leng = dfield_get_len(temp_row->fields + i);
-			datatemp = (const char*)((temp_row->fields + i)->data);
-			strncpy(data, datatemp, leng);
-		}
+		leng = dfield_get_len(temp_row->fields + temp_col_no);
+		datatemp = (const char*)((temp_row->fields + temp_col_no)->data);
+		strncpy(data, datatemp, leng);
 
 		if (cur_rec == 2) //如果是第一个记录
 		{

@@ -3450,33 +3450,36 @@ row_sel_build_prev_vers_for_mysql(
 static MY_ATTRIBUTE((warn_unused_result))
 void 
 row_sel_get_clust_rec_for_mysql_bf(
-	dict_index_t* index,
-	row_prebuilt_t* prebuilt,
+	const rec_t*		rec,			
+	dict_index_t*		index,
+	row_prebuilt_t*		prebuilt,
+	ulint*				offsets,
 	std::vector<rec_t*> rec_array,
-	mtr_t*		mtr)
+	mtr_t*				mtr)
 {
 	dict_index_t*       clust_index = dict_table_get_first_index(index->table);
 	page_t*				page = NULL;
 	const ulint			space = dict_index_get_space(index);
 	const page_size_t	page_size(dict_table_page_size(index->table));
 	buf_block_t*		block;
-	rec_t*				rec;
 	rec_t*				first_rec;
+	ulint				page_no;
 	page_id_t			page_id(space, dict_index_get_page(index));
+	rec_t*				temp_rec;
 
 	/*先判断在那一页中是否存在*/
 	const byte* rec_b_ptr;
 	ulint rec_f_len;
-	ulint n = 2;
-	mem_heap_t*	heap = mem_heap_create(256);
-	ulint* offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED, &heap);
+	ulint n = 1;
 	rec_b_ptr = rec_get_nth_field(rec, offsets, n, &rec_f_len);
 
 
 	//取出页号
 	n = 3;
-	rec_b_ptr = rec_get_nth_field(rec, offsets, n, &rec_f_len);
-
+	rec_b_ptr = rec_get_nth_field(rec, offsets, n, &rec_f_len); 
+	char data[20] = { 0 };
+	strncpy(data, (char *)rec_b_ptr, rec_f_len);
+	page_no = atoi(data);
 	/*然后在对应页中遍历record*/
 	block = buf_page_get_gen(
 		page_id,
@@ -3485,17 +3488,17 @@ row_sel_get_clust_rec_for_mysql_bf(
 		__FILE__, __LINE__, mtr);
 	page = buf_block_get_frame(block);
 	first_rec = page_get_infimum_rec(page);
-	rec = page_rec_get_next(first_rec);
-	while (!page_rec_is_supremum(rec)) {
+	temp_rec = page_rec_get_next(first_rec);
+	while (!page_rec_is_supremum(temp_rec)) {
 
 		ulint cmp = false;//search_tuple和rec中的数据进行对比，如果相等则将rec存储，否则到下一个
-		if (rec_get_deleted_flag(rec, 1)) {
+		if (rec_get_deleted_flag(temp_rec, 1)) {
 			cmp = true;
 		}
 		if (cmp == 0) {
-			rec_array.push_back(rec);
+			rec_array.push_back(temp_rec);
 		}
-		rec = page_rec_get_next(rec);
+		temp_rec = page_rec_get_next(temp_rec);
 	}
 }
 /*********************************************************************//**
@@ -4639,8 +4642,10 @@ row_search_mvcc(
 	ulint		direction)
 {
 	DBUG_ENTER("row_search_mvcc");
-	if(USE_BF && !dict_index_is_clust(prebuilt->index))
+	if (USE_BF && !dict_index_is_clust(prebuilt->index)) {
 		prebuilt->index = row_merge_create_bf_index(prebuilt->index);
+		//prebuilt->need_to_access_clustered = true;
+	}
 	dict_index_t*	index	= prebuilt->index;
 	ibool		comp		= dict_table_is_comp(index->table);
 	const dtuple_t*	search_tuple	= prebuilt->search_tuple;
@@ -5808,10 +5813,10 @@ requires_clust_rec:
 		'clust_rec'. Note that 'clust_rec' can be an old version
 		built for a consistent read. */
 
-		if (0)
+		if(0&&USE_BF && !dict_index_is_clust(index))
 		{
 			std::vector<rec_t*> rec_array;
-			row_sel_get_clust_rec_for_mysql_bf(index, prebuilt, rec_array, &mtr);
+			row_sel_get_clust_rec_for_mysql_bf(rec,index, prebuilt,offsets, rec_array, &mtr);
 			clust_rec = NULL;
 			int i = 0;
 			int len = rec_array.size();

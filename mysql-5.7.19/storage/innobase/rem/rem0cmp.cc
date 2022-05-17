@@ -726,7 +726,8 @@ cmp_dtuple_rec_with_match_low_bf(
 		ret1 = cmp_data(type->mtype, type->prtype,
 			dtuple_b_ptr, dtuple_f_len,
 			rec_b_ptr, rec_f_len);
-
+		int *a = (int *)(rec_b_ptr);
+		int *b = (int *)(rec_b_ptr2);
 		ret2 = cmp_data(type->mtype, type->prtype,
 			dtuple_b_ptr, dtuple_f_len,
 			rec_b_ptr2, rec_f_len2);
