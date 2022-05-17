@@ -1574,7 +1574,7 @@ dict_create_index_step(
 	trx = thr_get_trx(thr);
 
 	node = static_cast<ind_node_t*>(thr->run_node);
-
+	
 	ut_ad(que_node_get_type(node) == QUE_NODE_CREATE_INDEX);
 
 	if (thr->prev_node == que_node_get_parent(node)) {

@@ -22,7 +22,7 @@ Record manager
 
 Created 5/30/1994 Heikki Tuuri
 *************************************************************************/
-
+#include "bf.h"
 #include "mach0data.h"
 #include "ut0byte.h"
 #include "dict0dict.h"
@@ -1626,6 +1626,18 @@ rec_get_converted_size(
 {
 	ulint	data_size;
 	ulint	extra_size;
+
+	if(USE_BF && (!index->type))
+	{
+
+		index->n_fields = 4;
+		index->n_nullable *=2;
+		data_size = dtuple_get_data_size(dtuple, 0);
+
+		extra_size = rec_get_converted_extra_size(
+			data_size, dtuple_get_n_fields(dtuple), n_ext);
+		return (data_size + extra_size);
+	}
 
 	ut_ad(index);
 	ut_ad(dtuple);

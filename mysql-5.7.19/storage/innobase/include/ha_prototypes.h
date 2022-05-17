@@ -38,7 +38,7 @@ class THD;
 class Field;
 struct fts_string_t;
 typedef struct charset_info_st CHARSET_INFO;
-
+static int change_cur_field = -1;
 /*********************************************************************//**
 Wrapper around MySQL's copy_and_convert function.
 @return number of bytes copied to 'to' */

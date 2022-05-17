@@ -75,6 +75,26 @@ row_get_rec_roll_ptr(
 #define ROW_BUILD_FOR_PURGE	1	/*!< build row for purge. */
 #define ROW_BUILD_FOR_UNDO	2	/*!< build row for undo. */
 #define ROW_BUILD_FOR_INSERT	3	/*!< build row for insert. */
+
+/********************mycode*****/
+dtuple_t*
+row_build_index_entry_low_bf(
+	/*======================*/
+	const dtuple_t*		row,	/*!< in: row which should be
+					inserted or purged */
+	const row_ext_t*	ext,	/*!< in: externally stored column
+					prefixes, or NULL */
+	dict_index_t*		index,	/*!< in: index on the table */
+	mem_heap_t*		heap,	/*!< in: memory heap from which
+					the memory for the index entry
+					is allocated */
+	ulint			flag,
+	const dtuple_t*		row2,
+	ulint           line_number,
+	ulint           page_no)	
+	MY_ATTRIBUTE((warn_unused_result));
+
+
 /*****************************************************************//**
 When an insert or purge to a table is performed, this function builds
 the entry to be inserted into or purged from an index on the table.

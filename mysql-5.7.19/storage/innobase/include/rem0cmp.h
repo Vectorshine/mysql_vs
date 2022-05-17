@@ -108,6 +108,17 @@ cmp_dtuple_rec_with_gis_internal(
 	const rec_t*	rec,
 	const ulint*	offsets);
 
+int
+cmp_dtuple_rec_with_match_low_bf(
+	const dtuple_t*	dtuple,
+	const rec_t*	rec,
+	const ulint*	offsets,
+	ulint		n_cmp,
+	ulint*		matched_fields)
+	MY_ATTRIBUTE((nonnull));
+#define cmp_dtuple_rec_with_match_bf(tuple,rec,offsets,fields)		\
+	cmp_dtuple_rec_with_match_low_bf(					\
+		tuple,rec,offsets,dtuple_get_n_fields_cmp(tuple),fields)
 /** Compare a data tuple to a physical record.
 @param[in] dtuple data tuple
 @param[in] rec B-tree record
@@ -150,6 +161,11 @@ cmp_dtuple_rec_with_match_bytes(
 	ulint*			matched_fields,
 	ulint*			matched_bytes)
 	MY_ATTRIBUTE((warn_unused_result));
+int
+cmp_dtuple_rec_bf(
+	const dtuple_t*	dtuple,
+	const rec_t*	rec,
+	const ulint*	offsets);
 /** Compare a data tuple to a physical record.
 @see cmp_dtuple_rec_with_match
 @param[in] dtuple data tuple

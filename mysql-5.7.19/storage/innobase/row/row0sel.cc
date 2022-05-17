@@ -35,7 +35,7 @@ Created 12/19/1997 Heikki Tuuri
 #ifdef UNIV_NONINL
 #include "row0sel.ic"
 #endif
-
+#include <vector>
 #include "dict0dict.h"
 #include "dict0boot.h"
 #include "trx0undo.h"
@@ -3447,6 +3447,57 @@ row_sel_build_prev_vers_for_mysql(
 	return(err);
 }
 
+static MY_ATTRIBUTE((warn_unused_result))
+void 
+row_sel_get_clust_rec_for_mysql_bf(
+	dict_index_t* index,
+	row_prebuilt_t* prebuilt,
+	std::vector<rec_t*> rec_array,
+	mtr_t*		mtr)
+{
+	dict_index_t*       clust_index = dict_table_get_first_index(index->table);
+	page_t*				page = NULL;
+	const ulint			space = dict_index_get_space(index);
+	const page_size_t	page_size(dict_table_page_size(index->table));
+	buf_block_t*		block;
+	rec_t*				rec;
+	rec_t*				first_rec;
+	page_id_t			page_id(space, dict_index_get_page(index));
+
+	/*先判断在那一页中是否存在*/
+	const byte* rec_b_ptr;
+	ulint rec_f_len;
+	ulint n = 2;
+	mem_heap_t*	heap = mem_heap_create(256);
+	ulint* offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED, &heap);
+	rec_b_ptr = rec_get_nth_field(rec, offsets, n, &rec_f_len);
+
+
+	//取出页号
+	n = 3;
+	rec_b_ptr = rec_get_nth_field(rec, offsets, n, &rec_f_len);
+
+	/*然后在对应页中遍历record*/
+	block = buf_page_get_gen(
+		page_id,
+		dict_table_page_size(clust_index->table),
+		RW_NO_LATCH, NULL, BUF_GET,
+		__FILE__, __LINE__, mtr);
+	page = buf_block_get_frame(block);
+	first_rec = page_get_infimum_rec(page);
+	rec = page_rec_get_next(first_rec);
+	while (!page_rec_is_supremum(rec)) {
+
+		ulint cmp = false;//search_tuple和rec中的数据进行对比，如果相等则将rec存储，否则到下一个
+		if (rec_get_deleted_flag(rec, 1)) {
+			cmp = true;
+		}
+		if (cmp == 0) {
+			rec_array.push_back(rec);
+		}
+		rec = page_rec_get_next(rec);
+	}
+}
 /*********************************************************************//**
 Retrieves the clustered index record corresponding to a record in a
 non-clustered index. Does the necessary locking. Used in the MySQL
@@ -4588,8 +4639,9 @@ row_search_mvcc(
 	ulint		direction)
 {
 	DBUG_ENTER("row_search_mvcc");
-
-	dict_index_t*	index		= prebuilt->index;
+	if(USE_BF && !dict_index_is_clust(prebuilt->index))
+		prebuilt->index = row_merge_create_bf_index(prebuilt->index);
+	dict_index_t*	index	= prebuilt->index;
 	ibool		comp		= dict_table_is_comp(index->table);
 	const dtuple_t*	search_tuple	= prebuilt->search_tuple;
 	btr_pcur_t*	pcur		= prebuilt->pcur;
@@ -5097,10 +5149,15 @@ wait_table_again:
 				prebuilt->rtr_info->search_mode = mode;
 			}
 		}
-
-		btr_pcur_open_with_no_init(index, search_tuple, mode,
-					   BTR_SEARCH_LEAF,
-					   pcur, 0, &mtr);
+		change_cur_field++;
+		if(USE_BF)
+			btr_pcur_open_with_no_init(index, search_tuple, PAGE_CUR_LE,
+						   BTR_SEARCH_LEAF,
+						   pcur, 0, &mtr);
+		else
+			btr_pcur_open_with_no_init(index, search_tuple, mode,
+				BTR_SEARCH_LEAF,
+				pcur, 0, &mtr);
 
 		pcur->trx_if_known = trx;
 
@@ -5353,8 +5410,19 @@ wrong_offs:
 		in prebuilt: if not, then we return with DB_RECORD_NOT_FOUND */
 
 		/* fputs("Comparing rec and search tuple\n", stderr); */
-
-		if (0 != cmp_dtuple_rec(search_tuple, rec, offsets)) {
+		ulint leng;
+		ulint len;
+		const char*	datatemp;
+		char data[50] = { "" };
+		for (ulint i = 0; i < search_tuple->n_fields; i++) {
+			leng = dfield_get_len(search_tuple->fields + i);
+			const byte *rec_b_ptr = rec_get_nth_field(rec, offsets, i,
+				&len);
+			datatemp = (const char*)((search_tuple->fields + i)->data);
+			strncpy(data, datatemp, leng);
+			i=i;
+		}
+		if (0 != cmp_dtuple_rec_bf(search_tuple, rec, offsets)) {
 
 			if (set_also_gap_locks
 			    && !(srv_locks_unsafe_for_binlog
@@ -5700,9 +5768,11 @@ locks_ok:
 
 		goto next_rec;
 	}
-
+	int if_match = ICP_MATCH;
+	if (!USE_BF)
+		if_match = row_search_idx_cond_check(buf, prebuilt, rec, offsets);
 	/* Check if the record matches the index condition. */
-	switch (row_search_idx_cond_check(buf, prebuilt, rec, offsets)) {
+	switch (if_match) {
 	case ICP_NO_MATCH:
 		if (did_semi_consistent_read) {
 			row_unlock_for_mysql(prebuilt, TRUE);
@@ -5738,11 +5808,36 @@ requires_clust_rec:
 		'clust_rec'. Note that 'clust_rec' can be an old version
 		built for a consistent read. */
 
-		err = row_sel_get_clust_rec_for_mysql(prebuilt, index, rec,
-						      thr, &clust_rec,
-						      &offsets, &heap,
-						      need_vrow ? &vrow : NULL,
-						      &mtr);
+		if (0)
+		{
+			std::vector<rec_t*> rec_array;
+			row_sel_get_clust_rec_for_mysql_bf(index, prebuilt, rec_array, &mtr);
+			clust_rec = NULL;
+			int i = 0;
+			int len = rec_array.size();
+			for (i = 0; i < len; i++)
+			{
+				clust_rec = rec_array[i];
+				next_buf = next_buf
+					? row_sel_fetch_last_buf(prebuilt) : buf;
+				row_sel_store_mysql_rec(
+					next_buf, prebuilt, result_rec, vrow,
+					result_rec != rec,
+					result_rec != rec ? clust_index : index,
+					offsets, false);
+				if (next_buf != buf) {
+					row_sel_enqueue_cache_row_for_mysql(
+						next_buf, prebuilt);
+				}
+			}
+
+		}
+		else
+			err = row_sel_get_clust_rec_for_mysql(prebuilt, index, rec,
+				thr, &clust_rec,
+				&offsets, &heap,
+				need_vrow ? &vrow : NULL,
+				&mtr);
 		switch (err) {
 		case DB_SUCCESS:
 			if (clust_rec == NULL) {
