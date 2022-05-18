@@ -120,35 +120,38 @@ row_build_index_entry_low_bf(
 
 	{
 		dfield_t*		dfield;
-
+		char str[20] = { 0 };
+		itoa(line_number, str, 16);
+		int len = strlen(str);
 		dfield = dtuple_get_nth_field(entry, 2);
-		dfield_set_data(dfield, &line_number, 4);
-
+		dfield_set_data(dfield, str, len);
 		dfield->ext = 0;
 		dfield->spatial_status = 2;
-		dfield->len = 8;
+		dfield->len = len;
 
-		dfield->type.prtype = 0x508;
-		dfield->type.mtype = 6;
-		dfield->type.len = 8;
-		dfield->type.mbminmaxlen = 0;
+		dfield->type.prtype = 0x0021010f;
+		dfield->type.mtype = 0xc;
+		dfield->type.len = 0x3c;
+		dfield->type.mbminmaxlen = 0x10;
 	}
 
 	{
 		dfield_t*		dfield;
-
+		char str[20] = { 0 };
+		itoa(page_no, str, 16);
+		int len = strlen(str);
 		dfield = dtuple_get_nth_field(entry, 3);
 
-		dfield_set_data(dfield, &page_no, 4);
+		dfield_set_data(dfield, &str[0], len);
 
 		dfield->ext = 0;
 		dfield->spatial_status = 2;
-		dfield->len = 8;
+		dfield->len = len;
 
-		dfield->type.prtype = 0x508;
-		dfield->type.mtype = 6;
-		dfield->type.len = 8;
-		dfield->type.mbminmaxlen = 0;
+		dfield->type.prtype = 0x0021010f;
+		dfield->type.mtype = 0xc;
+		dfield->type.len = 0x3c;
+		dfield->type.mbminmaxlen = 0x10;
 	}
 	return(entry);
 }

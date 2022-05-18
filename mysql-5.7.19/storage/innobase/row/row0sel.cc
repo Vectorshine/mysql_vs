@@ -3448,15 +3448,16 @@ row_sel_build_prev_vers_for_mysql(
 }
 
 static MY_ATTRIBUTE((warn_unused_result))
-void 
+std::vector<rec_t*>
 row_sel_get_clust_rec_for_mysql_bf(
 	const rec_t*		rec,			
 	dict_index_t*		index,
 	row_prebuilt_t*		prebuilt,
 	ulint*				offsets,
-	std::vector<rec_t*> rec_array,
+	mem_heap_t**		heap,
 	mtr_t*				mtr)
 {
+	std::vector<rec_t*> rec_array;
 	dict_index_t*       clust_index = dict_table_get_first_index(index->table);
 	page_t*				page = NULL;
 	const ulint			space = dict_index_get_space(index);
@@ -3464,22 +3465,42 @@ row_sel_get_clust_rec_for_mysql_bf(
 	buf_block_t*		block;
 	rec_t*				first_rec;
 	ulint				page_no;
-	page_id_t			page_id(space, dict_index_get_page(index));
+	int					line_number;
+	//page_id_t			page_id(space, dict_index_get_page(index));
+	page_id_t			page_id(space, 3);
 	rec_t*				temp_rec;
+	const dict_field_t* ifield = dict_index_get_nth_field(index, 0);
+	const dict_col_t*	col = ifield->col;
+	ulint				col_no = dict_col_get_no(col);
+
+	for (ulint i = 0; i < 4; i++) {
+		const byte* rec_b_ptr;
+		ulint rec_f_len;
+		ulint col_len;
+		char data[20] = { 0 };
+		rec_b_ptr = rec_get_nth_field(rec, offsets, i, &rec_f_len);
+		const byte*	ptr = row_mysql_read_true_varchar(&col_len, rec_b_ptr, 2);
+		strncpy(data, (char *)rec_b_ptr, rec_f_len);
+		i = i;
+	}
 
 	/*先判断在那一页中是否存在*/
-	const byte* rec_b_ptr;
+	const byte* rec_b_ptr1;
 	ulint rec_f_len;
-	ulint n = 1;
-	rec_b_ptr = rec_get_nth_field(rec, offsets, n, &rec_f_len);
+	//取出行号
+	rec_b_ptr1 = rec_get_nth_field(rec, offsets, 2, &rec_f_len);
+	char data1[20] = { 0 };
+	char *ptr1;
+	strncpy(data1, (char *)rec_b_ptr1, rec_f_len);
+	line_number = strtoul(data1, &ptr1, 16);
 
-
+	const byte* rec_b_ptr2;
 	//取出页号
-	n = 3;
-	rec_b_ptr = rec_get_nth_field(rec, offsets, n, &rec_f_len); 
-	char data[20] = { 0 };
-	strncpy(data, (char *)rec_b_ptr, rec_f_len);
-	page_no = atoi(data);
+	rec_b_ptr2 = rec_get_nth_field(rec, offsets, 3, &rec_f_len); 
+	char data2[20] = { 0 };
+	char *ptr2;
+	strncpy(data2, (char *)rec_b_ptr2, rec_f_len);
+	page_no = strtoul(data2, &ptr2, 16);
 	/*然后在对应页中遍历record*/
 	block = buf_page_get_gen(
 		page_id,
@@ -3495,11 +3516,17 @@ row_sel_get_clust_rec_for_mysql_bf(
 		if (rec_get_deleted_flag(temp_rec, 1)) {
 			cmp = true;
 		}
+		else {
+			ulint *off = rec_get_offsets(temp_rec, clust_index, offsets,
+				ULINT_UNDEFINED, heap);
+			cmp = cmp_dtuple_rec_bf2(col_no,prebuilt->search_tuple, temp_rec, off);
+		}
 		if (cmp == 0) {
 			rec_array.push_back(temp_rec);
 		}
 		temp_rec = page_rec_get_next(temp_rec);
 	}
+	return rec_array;
 }
 /*********************************************************************//**
 Retrieves the clustered index record corresponding to a record in a
@@ -4644,7 +4671,7 @@ row_search_mvcc(
 	DBUG_ENTER("row_search_mvcc");
 	if (USE_BF && !dict_index_is_clust(prebuilt->index)) {
 		prebuilt->index = row_merge_create_bf_index(prebuilt->index);
-		//prebuilt->need_to_access_clustered = true;
+		prebuilt->need_to_access_clustered = true;
 	}
 	dict_index_t*	index	= prebuilt->index;
 	ibool		comp		= dict_table_is_comp(index->table);
@@ -5415,18 +5442,6 @@ wrong_offs:
 		in prebuilt: if not, then we return with DB_RECORD_NOT_FOUND */
 
 		/* fputs("Comparing rec and search tuple\n", stderr); */
-		ulint leng;
-		ulint len;
-		const char*	datatemp;
-		char data[50] = { "" };
-		for (ulint i = 0; i < search_tuple->n_fields; i++) {
-			leng = dfield_get_len(search_tuple->fields + i);
-			const byte *rec_b_ptr = rec_get_nth_field(rec, offsets, i,
-				&len);
-			datatemp = (const char*)((search_tuple->fields + i)->data);
-			strncpy(data, datatemp, leng);
-			i=i;
-		}
 		if (0 != cmp_dtuple_rec_bf(search_tuple, rec, offsets)) {
 
 			if (set_also_gap_locks
@@ -5813,28 +5828,33 @@ requires_clust_rec:
 		'clust_rec'. Note that 'clust_rec' can be an old version
 		built for a consistent read. */
 
-		if(0&&USE_BF && !dict_index_is_clust(index))
+		if(USE_BF && !dict_index_is_clust(index))
 		{
-			std::vector<rec_t*> rec_array;
-			row_sel_get_clust_rec_for_mysql_bf(rec,index, prebuilt,offsets, rec_array, &mtr);
+			std::vector<rec_t*> rec_array = row_sel_get_clust_rec_for_mysql_bf(rec,index, prebuilt,offsets,&heap, &mtr);
 			clust_rec = NULL;
 			int i = 0;
 			int len = rec_array.size();
 			for (i = 0; i < len; i++)
 			{
-				clust_rec = rec_array[i];
+				result_rec = rec_array[i];
+				offsets = rec_get_offsets(result_rec, clust_index, offsets,
+					ULINT_UNDEFINED, &heap);
 				next_buf = next_buf
 					? row_sel_fetch_last_buf(prebuilt) : buf;
+				/*row_sel_store_mysql_rec(
+					buf, prebuilt, result_rec, vrow,
+					TRUE, clust_index, offsets, false);*/
 				row_sel_store_mysql_rec(
 					next_buf, prebuilt, result_rec, vrow,
-					result_rec != rec,
-					result_rec != rec ? clust_index : index,
+					true,
+					clust_index,
 					offsets, false);
 				if (next_buf != buf) {
 					row_sel_enqueue_cache_row_for_mysql(
 						next_buf, prebuilt);
 				}
 			}
+			goto next_rec;
 
 		}
 		else

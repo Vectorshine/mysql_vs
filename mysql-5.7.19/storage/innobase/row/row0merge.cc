@@ -1836,7 +1836,6 @@ row_merge_create_bf_index(
 	const dict_index_t*		index)
 {
 	dict_index_t*   new_index;
-	dict_field_t*   field;
 	dict_field_t*   idx_field;
 	ulint len = 0;
 	new_index = dict_mem_index_create(
@@ -1856,6 +1855,7 @@ row_merge_create_bf_index(
 
 	/* The first field*/
 	{
+		dict_field_t*   field;
 		field = dict_index_get_nth_field(new_index, 0);
 		field->col = idx_field->col;
 		field->name = idx_field->name;
@@ -1865,6 +1865,7 @@ row_merge_create_bf_index(
 	}
 	/*The second field*/
 	{
+		dict_field_t*   field;
 		field = dict_index_get_nth_field(new_index, 1);
 		field->col = idx_field->col;
 		field->name = idx_field->name;
@@ -1874,35 +1875,42 @@ row_merge_create_bf_index(
 	}
 
 	/*The third field*/
-	field = dict_index_get_nth_field(new_index, 2);
-	field->name = "line_number";
-	field->col = static_cast<dict_col_t*>(
-		mem_heap_alloc(new_index->heap, sizeof(dict_col_t)));
-	field->col->len = 8;
-	field->col->mtype = 6;
-	field->col->prtype = 0x508;
-	field->col->mbminmaxlen = 0;
-	len += 8;
-	field->fixed_len = len;
-	field->col->ind = 4;
-	field->col->ord_part = 1;
-	field->col->max_prefix = 0;
-	field->prefix_len = 0;
+	{
+		dict_field_t*   field;
+		field = dict_index_get_nth_field(new_index, 2);
+		field->name = "line_number";
+		field->col = static_cast<dict_col_t*>(
+			mem_heap_alloc(new_index->heap, sizeof(dict_col_t)));
+		field->col->len = 0x3c;
+		field->col->mtype = 0xc;
+		field->col->prtype = 0x0021010f;
+		field->col->mbminmaxlen = 0x10;
+		len += 0;
+		field->fixed_len = len;
+		field->col->ind = 1;
+		field->col->ord_part = 1;
+		field->col->max_prefix = 0;
+		field->prefix_len = 0;
+	}
+
 	/*last*/
-	field = dict_index_get_nth_field(new_index, 3);
-	field->name = "page_no";
-	field->col = static_cast<dict_col_t*>(
-		mem_heap_alloc(new_index->heap, sizeof(dict_col_t)));
-	field->col->len = 8;
-	field->col->mtype = 6;
-	field->col->prtype = 0x508;
-	field->col->mbminmaxlen = 0;
-	len += 8;
-	field->fixed_len = len;
-	field->col->ind = 4;
-	field->col->ord_part = 1;
-	field->col->max_prefix = 0;
-	field->prefix_len = 0;
+	{
+		dict_field_t*   field;
+		field = dict_index_get_nth_field(new_index, 3);
+		field->name = "page_no";
+		field->col = static_cast<dict_col_t*>(
+			mem_heap_alloc(new_index->heap, sizeof(dict_col_t)));
+		field->col->len = 0x3c;
+		field->col->mtype = 0xc;
+		field->col->prtype = 0x0021010f;
+		field->col->mbminmaxlen = 0x10;
+		len += 0;
+		field->fixed_len = len;
+		field->col->ind = 1;
+		field->col->ord_part = 1;
+		field->col->max_prefix = 0;
+		field->prefix_len = 0;
+	}
 
 
 	new_index->heap = index->heap;
@@ -2207,15 +2215,10 @@ row_merge_read_clustered_index_bf(
 			//清空并构建新的数组
 			ulint leng;
 			const char*	datatemp;
-			char data[50] = { "" };
 			for (ulint i = 0; i < row->n_fields; i++) {
+				char data[50] = { "" };
 				leng = dfield_get_len(row->fields + i);
 				datatemp = (const char*)((row->fields + i)->data);
-				if (i >= 2)
-				{
-					int *a  = (int*)(((row->fields + i)->data));
-					i = i;
-				}
 				strncpy(data, datatemp, leng);
 			}
 			rec_num = page_get_n_recs(page);

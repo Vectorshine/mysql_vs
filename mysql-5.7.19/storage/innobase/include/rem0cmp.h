@@ -94,6 +94,19 @@ cmp_dtuple_rec_with_gis(
 	page_cur_mode_t	mode)
 	MY_ATTRIBUTE((nonnull));
 
+int
+cmp_dtuple_rec_with_match_low_bf2(
+	ulint col_no,
+	const dtuple_t*	dtuple,
+	const rec_t*	rec,
+	const ulint*	offsets,
+	ulint		n_cmp,
+	ulint*		matched_fields)
+	MY_ATTRIBUTE((nonnull));
+#define cmp_dtuple_rec_with_match_bf2(col_no,tuple,rec,offsets,fields)		\
+	cmp_dtuple_rec_with_match_low_bf2(					\
+		col_no,tuple,rec,offsets,dtuple_get_n_fields_cmp(tuple),fields)
+
 /** Compare a GIS data tuple to a physical record in rtree non-leaf node.
 We need to check the page number field, since we don't store pk field in
 rtree non-leaf node.
@@ -163,6 +176,12 @@ cmp_dtuple_rec_with_match_bytes(
 	MY_ATTRIBUTE((warn_unused_result));
 int
 cmp_dtuple_rec_bf(
+	const dtuple_t*	dtuple,
+	const rec_t*	rec,
+	const ulint*	offsets);
+int
+cmp_dtuple_rec_bf2(
+	ulint col_no,
 	const dtuple_t*	dtuple,
 	const rec_t*	rec,
 	const ulint*	offsets);
