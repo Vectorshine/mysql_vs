@@ -1811,7 +1811,7 @@ unsigned int bf_hash(const char *s, unsigned size)
 	}
 	return (hash & 0x7fffffffl);
 }
-void bloom_insert(vector<char> bf_array, void* data, int hash_num)
+vector<char> bloom_insert(vector<char> bf_array, void* data, int hash_num)
 {
 	int size = bf_array.size();
 	const unsigned char masks[8] = { 0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80 };
@@ -1828,6 +1828,7 @@ void bloom_insert(vector<char> bf_array, void* data, int hash_num)
 		unsigned idx = value[i] / 8;
 		bf_array[idx] |= masks[value[i] % 8];
 	}
+	return bf_array;
 }
 
 
@@ -2395,7 +2396,7 @@ end_of_index:
 				row2 = dtuple_copy(temp_row, heap);
 			}
 		}
-		bloom_insert(bf_array, data, 1);
+		bf_array = bloom_insert(bf_array, data, 1);
 		continue;
 
 

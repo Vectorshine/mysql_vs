@@ -3466,23 +3466,10 @@ row_sel_get_clust_rec_for_mysql_bf(
 	rec_t*				first_rec;
 	ulint				page_no;
 	int					line_number;
-	//page_id_t			page_id(space, dict_index_get_page(index));
-	page_id_t			page_id(space, 3);
 	rec_t*				temp_rec;
 	const dict_field_t* ifield = dict_index_get_nth_field(index, 0);
 	const dict_col_t*	col = ifield->col;
 	ulint				col_no = dict_col_get_no(col);
-
-	for (ulint i = 0; i < 4; i++) {
-		const byte* rec_b_ptr;
-		ulint rec_f_len;
-		ulint col_len;
-		char data[20] = { 0 };
-		rec_b_ptr = rec_get_nth_field(rec, offsets, i, &rec_f_len);
-		const byte*	ptr = row_mysql_read_true_varchar(&col_len, rec_b_ptr, 2);
-		strncpy(data, (char *)rec_b_ptr, rec_f_len);
-		i = i;
-	}
 
 	/*先判断在那一页中是否存在*/
 	const byte* rec_b_ptr1;
@@ -3493,6 +3480,12 @@ row_sel_get_clust_rec_for_mysql_bf(
 	char *ptr1;
 	strncpy(data1, (char *)rec_b_ptr1, rec_f_len);
 	line_number = strtoul(data1, &ptr1, 16);
+	{
+		char data[50] = { 0 };
+		int leng = dfield_get_len(prebuilt->search_tuple->fields);
+		const char*	datatemp = (const char*)((prebuilt->search_tuple->fields)->data);
+		strncpy(data, datatemp, leng);
+	}
 
 	const byte* rec_b_ptr2;
 	//取出页号
@@ -3501,6 +3494,7 @@ row_sel_get_clust_rec_for_mysql_bf(
 	char *ptr2;
 	strncpy(data2, (char *)rec_b_ptr2, rec_f_len);
 	page_no = strtoul(data2, &ptr2, 16);
+	page_id_t			page_id(space, page_no);
 	/*然后在对应页中遍历record*/
 	block = buf_page_get_gen(
 		page_id,

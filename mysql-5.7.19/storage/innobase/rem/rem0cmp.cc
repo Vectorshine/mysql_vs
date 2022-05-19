@@ -800,7 +800,7 @@ cmp_dtuple_rec_with_match_low_bf2(
 		(primary key fields) should already differ. */
 		ut_ad(!rec_offs_nth_extern(offsets, cur_field));
 
-		rec_b_ptr = rec_get_nth_field(rec, offsets, col_no,
+		rec_b_ptr = rec_get_nth_field(rec, offsets, col_no+2,
 			&rec_f_len);
 
 		ut_ad(!dfield_is_ext(dtuple_field));

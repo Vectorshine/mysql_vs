@@ -51,6 +51,27 @@ Created 4/20/1996 Heikki Tuuri
 #include "gis0geo.h"
 #include "row0mysql.h"
 
+
+void convertStrToUnChar(char* str, byte* UnChar)
+{
+	int i = strlen(str), j = 0, counter = 0;
+	char c[2];
+	unsigned int bytes[2];
+
+	for (j = 0; j < i; j += 2)
+	{
+		if (0 == j % 2)
+		{
+			c[0] = str[j];
+			c[1] = str[j + 1];
+			sscanf(c, "%02x", &bytes[0]);
+			UnChar[counter] = bytes[0];
+			counter++;
+		}
+	}
+	return;
+}
+
 dtuple_t*
 row_build_index_entry_low_bf(
 	/*======================*/
@@ -123,8 +144,10 @@ row_build_index_entry_low_bf(
 		char str[20] = { 0 };
 		itoa(line_number, str, 16);
 		int len = strlen(str);
+		byte* ptr = static_cast<byte*>(mem_heap_alloc(heap, 20));
+		memcpy(ptr, str, len);
 		dfield = dtuple_get_nth_field(entry, 2);
-		dfield_set_data(dfield, str, len);
+		dfield_set_data(dfield, ptr, len);
 		dfield->ext = 0;
 		dfield->spatial_status = 2;
 		dfield->len = len;
@@ -140,9 +163,11 @@ row_build_index_entry_low_bf(
 		char str[20] = { 0 };
 		itoa(page_no, str, 16);
 		int len = strlen(str);
+		byte* ptr1 = static_cast<byte*>(mem_heap_alloc(heap, 20));
+		memcpy(ptr1, str, len);
 		dfield = dtuple_get_nth_field(entry, 3);
 
-		dfield_set_data(dfield, &str[0], len);
+		dfield_set_data(dfield, ptr1, len);
 
 		dfield->ext = 0;
 		dfield->spatial_status = 2;
