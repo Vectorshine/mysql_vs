@@ -71,6 +71,9 @@ struct mtuple_t {
 	dfield_t*	fields;		/*!< data fields */
 };
 
+
+
+
 /** Buffer for sorting in main memory. */
 struct row_merge_buf_t {
 	mem_heap_t*	heap;		/*!< memory heap where allocated */
@@ -424,4 +427,6 @@ row_merge_read_rec(
 					(non-NULL on I/O error) */
 	ulint*			offsets)/*!< out: offsets of mrec */
 	MY_ATTRIBUTE((warn_unused_result));
+
 #endif /* row0merge.h */
+

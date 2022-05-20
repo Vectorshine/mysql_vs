@@ -29,9 +29,8 @@ Select
 
 Created 12/19/1997 Heikki Tuuri
 *******************************************************/
-
 #include "row0sel.h"
-
+#include "my_include.h"
 #ifdef UNIV_NONINL
 #include "row0sel.ic"
 #endif
@@ -3446,7 +3445,30 @@ row_sel_build_prev_vers_for_mysql(
 		prebuilt->old_vers_heap, old_vers, vrow);
 	return(err);
 }
-
+unsigned int bf_hash1(const char *s, unsigned size)
+{
+	int hash = 1315423911;
+	unsigned len = 0;
+	while (len < size)
+	{
+		hash ^= (hash << 5) + s[len] + (hash >> 2);
+		len++;
+	}
+	return (hash & 0x7fffffffl);
+}
+bool check_bf(char* data, std::vector<bool> bf_array)
+{
+	int h = bf_hash1(data, strlen(data));
+	unsigned int delta = (h >> 17) | (h << 15);
+	for (int i = 0; i < hash_num; i++)
+	{
+		int idx = h % bf_array.size();
+		if (!bf_array[idx])
+			return false;
+		h += delta;
+	}
+	return true;
+}
 static MY_ATTRIBUTE((warn_unused_result))
 std::vector<rec_t*>
 row_sel_get_clust_rec_for_mysql_bf(
@@ -3485,6 +3507,18 @@ row_sel_get_clust_rec_for_mysql_bf(
 		int leng = dfield_get_len(prebuilt->search_tuple->fields);
 		const char*	datatemp = (const char*)((prebuilt->search_tuple->fields)->data);
 		strncpy(data, datatemp, leng);
+		char char_array[2000] ;
+		ReadLineData("G:/new_mysql_log/data/datamip/test.bm", line_number+1, char_array);
+		vector<bool> bf_array;
+		for (int i = 0; i < strlen(char_array); i++)
+		{
+			if(char_array[i] == '0')
+				bf_array.push_back(0);
+			else
+				bf_array.push_back(1);
+		}
+		if (!check_bf(data, bf_array))
+			return rec_array;
 	}
 
 	const byte* rec_b_ptr2;

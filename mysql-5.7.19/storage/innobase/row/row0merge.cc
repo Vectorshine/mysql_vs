@@ -320,6 +320,31 @@ row_merge_buf_encode(
 
 	*b += size;
 }
+unsigned int bf_hash(const char *s, unsigned size)
+{
+	int hash = 1315423911;
+	unsigned len = 0;
+	while (len < size)
+	{
+		hash ^= (hash << 5) + s[len] + (hash >> 2);
+		len++;
+	}
+	return (hash & 0x7fffffffl);
+}
+vector<bool> bloom_insert(vector<bool> bf_array, void* data)
+{
+	int size = bf_array.size();
+	unsigned int h = bf_hash((const char *)data, strlen((char *)data));
+	//之后是通过对h的移位等得到剩余的值并存入value，现在先不写，看hash)_num=1的情况
+	unsigned int delta = (h >> 17) | (h << 15);
+	for (int i = 0; i < hash_num; ++i)
+	{
+		int idx = h % size;
+		bf_array[idx] = true;
+		h += delta;
+	}
+	return bf_array;
+}
 
 /******************************************************//**
 Allocate a sort buffer.
@@ -351,7 +376,6 @@ row_merge_buf_create_low(
 
 	return(buf);
 }
-
 /******************************************************//**
 Allocate a sort buffer.
 @return own: sort buffer */
@@ -1800,37 +1824,6 @@ row_geo_field_is_valid(
 	return(true);
 }
 
-unsigned int bf_hash(const char *s, unsigned size)
-{
-	int hash = 1315423911;
-	unsigned len = 0;
-	while (len < size)
-	{
-		hash ^= (hash << 5) + s[len] + (hash >> 2);
-		len++;
-	}
-	return (hash & 0x7fffffffl);
-}
-vector<char> bloom_insert(vector<char> bf_array, void* data, int hash_num)
-{
-	int size = bf_array.size();
-	const unsigned char masks[8] = { 0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80 };
-	unsigned h = bf_hash((const char *)data, size) % (size * 8);
-	vector<uint> value(hash_num);
-	value[0] = h;
-	//之后是通过对h的移位等得到剩余的值并存入value，现在先不写，看hash)_num=1的情况
-	for (int i = 1; i < hash_num; ++i)
-	{
-		//
-	}
-	for (int i = 0; i < hash_num; i++)
-	{
-		unsigned idx = value[i] / 8;
-		bf_array[idx] |= masks[value[i] % 8];
-	}
-	return bf_array;
-}
-
 
 dict_index_t*
 row_merge_create_bf_index(
@@ -2162,7 +2155,7 @@ row_merge_read_clustered_index_bf(
 	page = page_align(temp_rec);
 	ulint old_page_no = page_get_page_no(page);
 	uint rec_num = page_get_n_recs(page);
-	vector<char> bf_array(rec_num);
+	vector<bool> bf_array(rec_num*8);
 	int cur_rec = 0;//当前是该页第几个记录 
 	char min_data[50] = { 0 };
 	char max_data[50] = { 0 };
@@ -2223,8 +2216,8 @@ row_merge_read_clustered_index_bf(
 				strncpy(data, datatemp, leng);
 			}
 			rec_num = page_get_n_recs(page);
-			bf_array.resize(rec_num);
-			bf_array.assign(rec_num, 0);
+			bf_array.resize(rec_num*8);
+			bf_array.assign(rec_num*8, 0);
 			cur_rec = 0;
 			old_page_no = now_page_no;
 			flag3 = true;
@@ -2396,7 +2389,7 @@ end_of_index:
 				row2 = dtuple_copy(temp_row, heap);
 			}
 		}
-		bf_array = bloom_insert(bf_array, data, 1);
+		bf_array = bloom_insert(bf_array, data);
 		continue;
 
 
