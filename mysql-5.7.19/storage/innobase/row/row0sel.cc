@@ -5882,8 +5882,6 @@ requires_clust_rec:
 					row_sel_enqueue_cache_row_for_mysql(
 						next_buf, prebuilt);
 				}
-				if(prebuilt->n_fetch_cached > 0)
-					row_sel_dequeue_cached_row_for_mysql(buf, prebuilt);
 			}
 			goto next_rec;
 
