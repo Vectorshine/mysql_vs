@@ -3487,7 +3487,6 @@ row_sel_get_clust_rec_for_mysql_bf(
 	buf_block_t*		block;
 	rec_t*				first_rec;
 	ulint				page_no;
-	int					line_number;
 	rec_t*				temp_rec;
 	const dict_field_t* ifield = dict_index_get_nth_field(index, 0);
 	const dict_col_t*	col = ifield->col;
@@ -3501,13 +3500,13 @@ row_sel_get_clust_rec_for_mysql_bf(
 	char data1[20] = { 0 };
 	char *ptr1;
 	strncpy(data1, (char *)rec_b_ptr1, rec_f_len);
-	line_number = strtoul(data1, &ptr1, 16);
+	const int line_number = strtoul(data1, &ptr1, 16);
 	{
 		char data[50] = { 0 };
 		int leng = dfield_get_len(prebuilt->search_tuple->fields);
 		const char*	datatemp = (const char*)((prebuilt->search_tuple->fields)->data);
 		strncpy(data, datatemp, leng);
-		char char_array[2000] ;
+		char char_array[4000] ;
 		ReadLineData("G:/new_mysql_log/data/datamip/test.bm", line_number+1, char_array);
 		vector<bool> bf_array;
 		for (int i = 0; i < strlen(char_array); i++)
@@ -5869,9 +5868,6 @@ requires_clust_rec:
 					ULINT_UNDEFINED, &heap);
 				next_buf = next_buf
 					? row_sel_fetch_last_buf(prebuilt) : buf;
-				/*row_sel_store_mysql_rec(
-					buf, prebuilt, result_rec, vrow,
-					TRUE, clust_index, offsets, false);*/
 				row_sel_store_mysql_rec(
 					next_buf, prebuilt, result_rec, vrow,
 					true,
@@ -5881,6 +5877,7 @@ requires_clust_rec:
 					row_sel_enqueue_cache_row_for_mysql(
 						next_buf, prebuilt);
 				}
+				/*row_sel_dequeue_cached_row_for_mysql(buf, prebuilt);*/
 			}
 			goto next_rec;
 

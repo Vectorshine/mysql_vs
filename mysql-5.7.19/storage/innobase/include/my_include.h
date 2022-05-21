@@ -17,7 +17,7 @@ inline void ReadLineData(char* fileName, int lineNum, char* data)
 	in.open(fileName);
  
 	int line = 1;
-	while (in.getline(data, 1024))
+	while (in.getline(data, 4000))
 	{
 		if (lineNum == line)
 		{
@@ -48,42 +48,21 @@ inline string CharToStr(char * contentChar)
 ************************************/
 inline void ModifyLineData(char* fileName, int lineNum, char* lineData)
 {
-	ifstream in;
-	in.open(fileName);
- 
-	string strFileData = "";
-	int line = 1;
-	char tmpLineData[1024] = {0};
-	while(in.getline(tmpLineData, sizeof(tmpLineData)))
-	{
-		if (line == lineNum)
-		{
-			strFileData += CharToStr(lineData);
-			strFileData += "\n";
-		}
-		else
-		{
-			strFileData += CharToStr(tmpLineData);
-			strFileData += "\n";
-		}
-		line++;
-	}
-	in.close();
- 
-	//写入文件
-	ofstream out;
-	out.open(fileName);
-	out.flush();
-	out<<strFileData;
-	out.close();
+	FILE *fp;
+
+	fp = fopen(fileName, "r+");
+	fseek(fp, 0, SEEK_SET);
+	fputs(lineData, fp);
+	for (int i = strlen(lineData); i < 5; i++)
+		fputs(" ", fp);
+	fclose(fp);
 }
 inline void fp_init(char *fileName)
 {
 	FILE *fp = NULL;
 	fp = fopen(fileName, "w");
 //	fwrite(0, sizeof(0), 1, fp);
-	char c[3] = {"0\n"};
-	fwrite(&c, 2, 1, fp);
+	fputs("0    \n", fp);
 	fclose(fp);
 }
 inline int update_total_num(char *fileName)

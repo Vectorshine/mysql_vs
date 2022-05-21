@@ -335,7 +335,6 @@ vector<bool> bloom_insert(vector<bool> bf_array, void* data)
 {
 	int size = bf_array.size();
 	unsigned int h = bf_hash((const char *)data, strlen((char *)data));
-	//之后是通过对h的移位等得到剩余的值并存入value，现在先不写，看hash)_num=1的情况
 	unsigned int delta = (h >> 17) | (h << 15);
 	for (int i = 0; i < hash_num; ++i)
 	{
@@ -2155,7 +2154,7 @@ row_merge_read_clustered_index_bf(
 	page = page_align(temp_rec);
 	ulint old_page_no = page_get_page_no(page);
 	uint rec_num = page_get_n_recs(page);
-	vector<bool> bf_array(rec_num*8);
+	vector<bool> bf_array(rec_num * 8);
 	int cur_rec = 0;//当前是该页第几个记录 
 	char min_data[50] = { 0 };
 	char max_data[50] = { 0 };
@@ -2184,18 +2183,18 @@ row_merge_read_clustered_index_bf(
 		rec = page_cur_get_rec(cur);
 		page = page_align(rec);
 		ulint now_page_no = page_get_page_no(page);
-		if(!is_last)
+		if (!is_last)
 			page_cur_move_to_next(cur);
 		stage->n_pk_recs_inc();
 		bool flag1 = page_rec_is_infimum(rec);
 		bool flag2 = page_rec_is_supremum(rec);
 
 		is_last = page_cur_is_after_last(cur);
-		if (flag1 || flag2&&(!is_last) || rec_get_deleted_flag(rec, dict_table_is_comp(old_table))) {
+		if (flag1 || flag2 && (!is_last) || rec_get_deleted_flag(rec, dict_table_is_comp(old_table))) {
 			continue;
 		}
 
-		if (now_page_no != old_page_no || flag2 && is_last&& !flag3) {//即将到了新页 
+		if (now_page_no != old_page_no || flag2 && is_last && !flag3) {//即将到了新页 
 			//将bf数组放在申请好的页       
 			int line_num = write_fp(fileName, bf_array);
 			//将收集的数据构建一个新的元组   row=build_bfindex();	
@@ -2214,16 +2213,16 @@ row_merge_read_clustered_index_bf(
 				leng = dfield_get_len(row->fields + i);
 				datatemp = (const char*)((row->fields + i)->data);
 				strncpy(data, datatemp, leng);
-			}
+		}
 			rec_num = page_get_n_recs(page);
-			bf_array.resize(rec_num*8);
-			bf_array.assign(rec_num*8, 0);
+			bf_array.resize(rec_num * 8);
+			bf_array.assign(rec_num * 8, 0);
 			cur_rec = 0;
 			old_page_no = now_page_no;
 			flag3 = true;
 			//插入到buf
 			goto what;
-		}
+	}
 		if (is_last&&flag3) {
 
 			stage->inc();
@@ -2304,7 +2303,7 @@ row_merge_read_clustered_index_bf(
 
 				/* Give the waiters a chance to proceed. */
 				os_thread_yield();
-scan_next:
+			scan_next:
 				mtr_start(&mtr);
 				/* Restore position on the record, or its
 				predecessor if the record was purged
@@ -2315,7 +2314,7 @@ scan_next:
 				original record. */
 				if (!btr_pcur_move_to_next_user_rec(
 					&pcur, &mtr)) {
-end_of_index:
+				end_of_index:
 					row = NULL;
 					mtr_commit(&mtr);
 					mem_heap_free(row_heap);
@@ -2346,7 +2345,8 @@ end_of_index:
 					BTR_SEARCH_LEAF, &mtr);
 				page_cur_set_before_first(block, cur);
 				page_cur_move_to_next(cur);
-
+				rec = page_cur_get_rec(cur);
+				cur_rec++;
 				ut_ad(!page_cur_is_after_last(cur));
 			}
 		}
@@ -2368,11 +2368,15 @@ end_of_index:
 		{
 			strcpy(min_data, data);
 			strcpy(max_data, data);
-			row1 = temp_row;
-			row2 = temp_row;
+			mem_heap_t*		heap;
+			ulint* ofsets;
+			mrec_buf_t*		buf;
+			heap = mem_heap_create(sizeof *buf + 7 * sizeof *ofsets);
+			row1 = dtuple_copy(temp_row, heap);
+			row2 = dtuple_copy(temp_row, heap);
 		}
 		else {//如果不是第一个记录，更新最大值和最小值 
-			if (strcmp(min_data,data) > 0){
+			if (strcmp(min_data, data) > 0) {
 				strcpy(min_data, data);
 				mem_heap_t*		heap;
 				ulint* ofsets;
@@ -3467,7 +3471,6 @@ scan_next:
 			rec, offsets, new_table,
 			add_cols, add_v, col_map, &ext,
 			row_heap);
-		ut_ad(row);
 
 		for (ulint i = 0; i < n_nonnull; i++) {
 			const dfield_t*	field = &row->fields[nonnull[i]];
