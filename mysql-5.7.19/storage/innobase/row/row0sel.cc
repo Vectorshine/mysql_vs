@@ -5469,7 +5469,12 @@ wrong_offs:
 		in prebuilt: if not, then we return with DB_RECORD_NOT_FOUND */
 
 		/* fputs("Comparing rec and search tuple\n", stderr); */
-		if (0 != cmp_dtuple_rec_bf(search_tuple, rec, offsets)) {
+		int temp;
+		if(USE_BF)
+			temp = cmp_dtuple_rec_bf(search_tuple, rec, offsets);
+		else
+			temp = cmp_dtuple_rec(search_tuple, rec, offsets);
+		if (0 != temp) {
 
 			if (set_also_gap_locks
 			    && !(srv_locks_unsafe_for_binlog
@@ -5877,7 +5882,8 @@ requires_clust_rec:
 					row_sel_enqueue_cache_row_for_mysql(
 						next_buf, prebuilt);
 				}
-				/*row_sel_dequeue_cached_row_for_mysql(buf, prebuilt);*/
+				if(prebuilt->n_fetch_cached > 0)
+					row_sel_dequeue_cached_row_for_mysql(buf, prebuilt);
 			}
 			goto next_rec;
 
