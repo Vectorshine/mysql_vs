@@ -5221,7 +5221,7 @@ wait_table_again:
 		pcur->trx_if_known = trx;
 
 		rec = btr_pcur_get_rec(pcur);
-
+	
 		if (!moves_up
 		    && !page_rec_is_supremum(rec)
 		    && set_also_gap_locks
@@ -5859,29 +5859,39 @@ requires_clust_rec:
 		/* The following call returns 'offsets' associated with
 		'clust_rec'. Note that 'clust_rec' can be an old version
 		built for a consistent read. */
-
+		
 		if(USE_BF && !dict_index_is_clust(index))
 		{
-			std::vector<rec_t*> rec_array = row_sel_get_clust_rec_for_mysql_bf(rec,index, prebuilt,offsets,&heap, &mtr);
-			clust_rec = NULL;
-			int i = 0;
-			int len = rec_array.size();
-			for (i = 0; i < len; i++)
-			{
-				result_rec = rec_array[i];
-				offsets = rec_get_offsets(result_rec, clust_index, offsets,
-					ULINT_UNDEFINED, &heap);
-				next_buf = next_buf
-					? row_sel_fetch_last_buf(prebuilt) : buf;
-				row_sel_store_mysql_rec(
-					next_buf, prebuilt, result_rec, vrow,
-					true,
-					clust_index,
-					offsets, false);
-				if (next_buf != buf) {
-					row_sel_enqueue_cache_row_for_mysql(
-						next_buf, prebuilt);
+			rec_t* temp_rec = (rec_t*)rec;
+			ulint *of  = offsets;
+			while (!page_rec_is_infimum(temp_rec) &&
+				!cmp_dtuple_rec_bf(prebuilt->search_tuple, temp_rec, of)) {
+				std::vector<rec_t*> rec_array =
+					row_sel_get_clust_rec_for_mysql_bf(temp_rec, index,
+						prebuilt, offsets, &heap, &mtr);
+				clust_rec = NULL;
+				int i = 0;
+				int len = rec_array.size();
+				for (i = 0; i < len; i++)
+				{
+					result_rec = rec_array[i];
+					offsets = rec_get_offsets(result_rec, clust_index, offsets,
+						ULINT_UNDEFINED, &heap);
+					next_buf = next_buf
+						? row_sel_fetch_last_buf(prebuilt) : buf;
+					row_sel_store_mysql_rec(
+						next_buf, prebuilt, result_rec, vrow,
+						true,
+						clust_index,
+						offsets, false);
+					if (next_buf != buf) {
+						row_sel_enqueue_cache_row_for_mysql(
+							next_buf, prebuilt);
+					}
 				}
+				temp_rec = page_rec_get_prev(temp_rec);
+				of = rec_get_offsets(temp_rec, index, of,
+					ULINT_UNDEFINED, &heap);
 			}
 			goto next_rec;
 

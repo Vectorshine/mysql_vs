@@ -2194,7 +2194,7 @@ row_merge_read_clustered_index_bf(
 			continue;
 		}
 
-		if (now_page_no != old_page_no || flag2 && is_last && !flag3) {//即将到了新页 
+		if (flag2 && is_last && !flag3) {//即将到了新页 
 			//将bf数组放在申请好的页       
 			int line_num = write_fp(fileName, bf_array);
 			//将收集的数据构建一个新的元组   row=build_bfindex();	
@@ -2203,7 +2203,7 @@ row_merge_read_clustered_index_bf(
 			mrec_buf_t*		buf;
 			heap = mem_heap_create(sizeof *buf + 7 * sizeof *ofsets);
 			row = row_build_index_entry_low_bf(row1, NULL,
-				index[0], heap, ROW_BUILD_FOR_INSERT, row2, line_num, old_page_no);
+				index[0], heap, ROW_BUILD_FOR_INSERT, row2, line_num, now_page_no);
 			//关于构建元组在row_merge_insert_index_tuples中 
 			//清空并构建新的数组
 			ulint leng;
@@ -2213,7 +2213,7 @@ row_merge_read_clustered_index_bf(
 				leng = dfield_get_len(row->fields + i);
 				datatemp = (const char*)((row->fields + i)->data);
 				strncpy(data, datatemp, leng);
-		}
+			}
 			rec_num = page_get_n_recs(page);
 			bf_array.resize(rec_num * 8);
 			bf_array.assign(rec_num * 8, 0);
@@ -2224,7 +2224,8 @@ row_merge_read_clustered_index_bf(
 			goto what;
 	}
 		if (is_last&&flag3) {
-
+			flag3 = false;
+			is_last = false;
 			stage->inc();
 
 			if (UNIV_UNLIKELY(trx_is_interrupted(trx))) {

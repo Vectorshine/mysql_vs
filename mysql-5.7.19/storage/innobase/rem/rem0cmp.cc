@@ -729,8 +729,8 @@ cmp_dtuple_rec_with_match_low_bf(
 		ret2 = cmp_data(type->mtype, type->prtype,
 			dtuple_b_ptr, dtuple_f_len,
 			rec_b_ptr2, rec_f_len2);
-		//ret = !(ret1 >= 0 && ret2 <= 0);
-		ret = 0;
+		ret = !(ret1 >= 0 && ret2 <= 0);
+		//ret = 0;
 		if (ret) {
 			goto order_resolved;
 		}

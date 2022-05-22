@@ -1288,7 +1288,8 @@ sub_select(JOIN *join, QEP_TAB *const qep_tab,bool end_of_records)
     {
       if (qep_tab->keep_current_rowid)
         qep_tab->table()->file->position(qep_tab->table()->record[0]);
-      rc= evaluate_join_record(join, qep_tab);
+
+	  rc= evaluate_join_record(join, qep_tab);
     }
   }
 
