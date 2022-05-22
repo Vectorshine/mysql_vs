@@ -1,1 +1,1 @@
-static bool USE_BF = true;
+static bool USE_BF = false;
